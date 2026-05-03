@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg:         #0f1117;
+  --bg2:        #161922;
+  --bg3:        #1e2330;
+  --border:     rgba(255,255,255,0.07);
+  --border-md:  rgba(255,255,255,0.12);
+  --text:       #f0f2f8;
+  --text2:      #8b90a4;
+  --text3:      #4f5468;
+  --green:      #2dd4a0;
+  --green-dim:  rgba(45,212,160,0.12);
+  --red:        #f05e6e;
+  --red-dim:    rgba(240,94,110,0.12);
+  --indigo:     #7c7ff7;
+  --indigo-dim: rgba(124,127,247,0.14);
+  --amber:      #f5a623;
+  --font:       'DM Sans', sans-serif;
+  --mono:       'DM Mono', monospace;
+  --radius:     14px;
+  --radius-sm:  8px;
+  --shadow:     0 4px 24px rgba(0,0,0,0.4);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+
+input, select, textarea {
+  font-family: var(--font);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  /* Evita zoom no iOS ao focar em inputs */
+  font-size: 16px !important;
+}
+input:focus, select:focus {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 3px var(--indigo-dim);
+}
+input::placeholder { color: var(--text3); }
+select option { background: var(--bg2); }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+.fade-up { animation: fadeUp 0.25s ease forwards; }
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg3) 25%, rgba(255,255,255,0.04) 50%, var(--bg3) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Grid de gráficos: 2 colunas em desktop, 1 em mobile */
+.charts-grid {
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 640px) {
+  .charts-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Cards de resumo: 3 colunas em desktop, 1 em mobile */
+.summary-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 640px) {
+  .summary-grid {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+}
+
+/* Filtros de transação em coluna no mobile */
+@media (max-width: 640px) {
+  .filters-row {
+    flex-direction: column !important;
+  }
+  .filters-row select,
+  .filters-row input {
+    width: 100% !important;
+  }
+}
