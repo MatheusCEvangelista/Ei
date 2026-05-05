@@ -8,6 +8,7 @@ import TransactionModal from '../components/TransactionModal';
 import MonthSelector from '../components/MonthSelector';
 import Navbar from '../components/Navbar';
 import { useExportCSV } from '../hooks/useExportCSV';
+import ImportModal from '../components/ImportModal';
 
 const cardStyle = {
   background: 'var(--bg2)',
@@ -24,6 +25,7 @@ export default function Dashboard() {
   const [evolution, setEvolution] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [loading, setLoading] = useState(true);
   const { exportCSV } = useExportCSV();
@@ -63,6 +65,14 @@ export default function Dashboard() {
           <MonthSelector month={month} year={year} onChange={(m, y) => { setMonth(m); setYear(y); }} />
           <div style={{ display: 'flex', gap: 8 }}>
             {/* Exportar CSV: só ícone no mobile */}
+            <button onClick={() => setShowImport(true)} style={{
+              padding: '8px 12px', borderRadius: 10,
+              border: '1px solid var(--border)', background: 'var(--bg2)',
+              color: 'var(--text2)', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+            }}>
+              <span className="hidden sm:inline">↑ Importar CSV</span>
+              <span className="sm:hidden">↑ Import</span>
+            </button>
             <button onClick={() => exportCSV(transactions, month, year)} style={{
               padding: '8px 12px', borderRadius: 10,
               border: '1px solid var(--border)', background: 'var(--bg2)',
@@ -122,6 +132,13 @@ export default function Dashboard() {
         boxShadow: '0 4px 20px rgba(124,127,247,0.45)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>＋</button>
+
+      {showImport && (
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          onSave={() => { setShowImport(false); loadData(); }}
+        />
+      )}
 
       {showModal && (
         <TransactionModal

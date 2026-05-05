@@ -9,10 +9,24 @@ const summaryRoutes = require('./routes/summary');
 
 const app = express();
 
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:4173',
+  (process.env.FRONTEND_URL || '').replace(/\/$/, ''),
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Permite requests sem origin (mobile nativo, Postman)
+    if (!origin) return callback(null, true);
+    // Normaliza: remove path e barra final
+    const normalized = origin.split('/').slice(0, 3).join('/');
+    if (allowedOrigins.includes(normalized)) return callback(null, true);
+    callback(new Error(`CORS bloqueado para: ${origin}`));
+  },
   credentials: true,
 }));
+
 app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
