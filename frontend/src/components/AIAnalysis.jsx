@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import api from '../lib/api';
 
 export default function AIAnalysis({ transactions, summary, month, year }) {
   const [analysis, setAnalysis] = useState('');
@@ -14,7 +15,6 @@ export default function AIAnalysis({ transactions, summary, month, year }) {
 
     const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-    // Agrupa por categoria
     const byCategory = {};
     transactions.forEach(tx => {
       if (tx.type !== 'expense') return;
@@ -46,20 +46,10 @@ Forneça uma análise em português com:
 Seja direto, use linguagem simples e seja construtivo. Não use markdown com asteriscos, use apenas texto limpo com números (1. 2. 3.) para listas.`;
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      });
-      const data = await response.json();
-      const text = data.content?.map(b => b.text || '').join('') || 'Não foi possível gerar a análise.';
-      setAnalysis(text);
-    } catch {
-      setAnalysis('Erro ao conectar com a IA. Verifique sua conexão e tente novamente.');
+      const { data } = await api.post('/api/ai', { prompt });
+      setAnalysis(data.text || 'Não foi possível gerar a análise.');
+    } catch (err) {
+      setAnalysis(err.response?.data?.error || 'Erro ao gerar análise. Verifique se a ANTHROPIC_API_KEY está configurada no backend.');
     } finally {
       setLoading(false);
     }
@@ -72,13 +62,12 @@ Seja direto, use linguagem simples e seja construtivo. Não use markdown com ast
         border: '1px solid rgba(124,127,247,0.3)',
         background: 'var(--indigo-dim)',
         color: 'var(--indigo)', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s',
       }}>
         {loading ? '⏳ Analisando...' : '🤖 Analisar mês'}
       </button>
 
       {open && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50, padding: 0 }} onClick={() => !loading && setOpen(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }} onClick={() => !loading && setOpen(false)}>
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border-md)', borderRadius: '18px 18px 0 0', width: '100%', maxWidth: 520, padding: '8px 24px 36px', boxShadow: 'var(--shadow)', maxHeight: '85vh', overflowY: 'auto' }} className="fade-up" onClick={e => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--bg3)', margin: '10px auto 20px' }} />
 
@@ -95,11 +84,11 @@ Seja direto, use linguagem simples e seja construtivo. Não use markdown com ast
 
             {loading ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 20, width: i === 4 ? '60%' : '100%' }} />)}
+                {[1,2,3,4].map(i => <div key={i} className="skeleton" style={{ height: 18, width: i === 4 ? '60%' : '100%' }} />)}
                 <p style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', marginTop: 8 }}>Analisando suas finanças...</p>
               </div>
             ) : (
-              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
                 {analysis}
               </div>
             )}
