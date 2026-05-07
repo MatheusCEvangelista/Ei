@@ -5,9 +5,9 @@ import BarChartEvolution from '../components/BarChartEvolution';
 import PieChartCategories from '../components/PieChartCategories';
 import TransactionList from '../components/TransactionList';
 import TransactionModal from '../components/TransactionModal';
+import ImportModal from '../components/ImportModal';
 import MonthSelector from '../components/MonthSelector';
 import Navbar from '../components/Navbar';
-import AIAnalysis from '../components/AIAnalysis';
 import { useExportCSV } from '../hooks/useExportCSV';
 
 const cardStyle = { background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 18px 16px' };
@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [evolution, setEvolution] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [loading, setLoading] = useState(true);
   const { exportCSV } = useExportCSV();
@@ -56,7 +57,10 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <MonthSelector month={month} year={year} onChange={(m, y) => { setMonth(m); setYear(y); }} />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <AIAnalysis transactions={transactions} summary={summary} month={month} year={year} />
+            <button onClick={() => setShowImport(true)} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text2)', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              <span className="hidden sm:inline">↑ Importar extrato</span>
+              <span className="sm:hidden">↑ Import</span>
+            </button>
             <button onClick={() => exportCSV(transactions, month, year)} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text2)', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
               <span className="hidden sm:inline">↓ Exportar CSV</span>
               <span className="sm:hidden">↓ CSV</span>
@@ -91,7 +95,19 @@ export default function Dashboard() {
 
       <button onClick={() => setShowModal(true)} className="sm:hidden" style={{ position: 'fixed', bottom: 24, right: 20, zIndex: 30, width: 54, height: 54, borderRadius: '50%', border: 'none', background: 'linear-gradient(135deg, var(--indigo), #a78bfa)', color: '#fff', fontSize: 26, cursor: 'pointer', boxShadow: '0 4px 20px rgba(124,127,247,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>＋</button>
 
-      {showModal && <TransactionModal transaction={editingTransaction} onClose={handleClose} onSave={() => { handleClose(); loadData(); }} />}
+      {showImport && (
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          onSave={() => { setShowImport(false); loadData(); }}
+        />
+      )}
+      {showModal && (
+        <TransactionModal
+          transaction={editingTransaction}
+          onClose={handleClose}
+          onSave={() => { handleClose(); loadData(); }}
+        />
+      )}
     </div>
   );
 }
