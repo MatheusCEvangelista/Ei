@@ -14,7 +14,6 @@ export default function AIAnalysis({ transactions, summary, month, year }) {
     setAnalysis('');
 
     const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
     const byCategory = {};
     transactions.forEach(tx => {
       if (tx.type !== 'expense') return;
@@ -49,10 +48,8 @@ Seja direto, use linguagem simples e seja construtivo. Não use markdown com ast
       const { data } = await api.post('/api/ai', { prompt });
       setAnalysis(data.text || 'Não foi possível gerar a análise.');
     } catch (err) {
-      setAnalysis(err.response?.data?.error || 'Erro ao gerar análise. Verifique se a ANTHROPIC_API_KEY está configurada no backend.');
-    } finally {
-      setLoading(false);
-    }
+      setAnalysis(err.response?.data?.error || 'Erro ao gerar análise. Verifique se a GEMINI_API_KEY está configurada no backend.');
+    } finally { setLoading(false); }
   }
 
   return (
@@ -63,20 +60,19 @@ Seja direto, use linguagem simples e seja construtivo. Não use markdown com ast
         background: 'var(--indigo-dim)',
         color: 'var(--indigo)', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
       }}>
-        {loading ? '⏳ Analisando...' : '🤖 Analisar mês'}
+        {loading ? '⏳' : '🤖'} <span className="hidden sm:inline">{loading ? 'Analisando...' : 'Analisar mês'}</span>
       </button>
 
       {open && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50 }} onClick={() => !loading && setOpen(false)}>
           <div style={{ background: 'var(--bg2)', border: '1px solid var(--border-md)', borderRadius: '18px 18px 0 0', width: '100%', maxWidth: 520, padding: '8px 24px 36px', boxShadow: 'var(--shadow)', maxHeight: '85vh', overflowY: 'auto' }} className="fade-up" onClick={e => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--bg3)', margin: '10px auto 20px' }} />
-
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--indigo-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🤖</div>
                 <div>
                   <h2 style={{ fontSize: 15, fontWeight: 600 }}>Análise do mês</h2>
-                  <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{MONTHS[month - 1]} {year}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{MONTHS[month - 1]} {year} · Gemini AI</p>
                 </div>
               </div>
               {!loading && <button onClick={() => setOpen(false)} style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg3)', color: 'var(--text2)', cursor: 'pointer', fontSize: 16 }}>×</button>}
@@ -88,15 +84,11 @@ Seja direto, use linguagem simples e seja construtivo. Não use markdown com ast
                 <p style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'center', marginTop: 8 }}>Analisando suas finanças...</p>
               </div>
             ) : (
-              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-                {analysis}
-              </div>
+              <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{analysis}</div>
             )}
 
             {!loading && analysis && (
-              <button onClick={analyze} style={{ marginTop: 20, fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font)' }}>
-                ↺ Gerar nova análise
-              </button>
+              <button onClick={analyze} style={{ marginTop: 20, fontSize: 12, color: 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font)' }}>↺ Gerar nova análise</button>
             )}
           </div>
         </div>

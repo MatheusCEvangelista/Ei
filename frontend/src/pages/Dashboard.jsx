@@ -8,6 +8,7 @@ import TransactionModal from '../components/TransactionModal';
 import ImportModal from '../components/ImportModal';
 import MonthSelector from '../components/MonthSelector';
 import Navbar from '../components/Navbar';
+import AIAnalysis from '../components/AIAnalysis';
 import { useExportCSV } from '../hooks/useExportCSV';
 
 const cardStyle = { background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 18px 16px' };
@@ -57,6 +58,7 @@ export default function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <MonthSelector month={month} year={year} onChange={(m, y) => { setMonth(m); setYear(y); }} />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <AIAnalysis transactions={transactions} summary={summary} month={month} year={year} />
             <button onClick={() => setShowImport(true)} style={{ padding: '8px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text2)', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
               <span className="hidden sm:inline">↑ Importar extrato</span>
               <span className="sm:hidden">↑ Import</span>

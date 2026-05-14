@@ -1,11 +1,12 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import LoginPage      from './pages/LoginPage';
-import Dashboard      from './pages/Dashboard';
-import CategoriesPage from './pages/CategoriesPage';
-import GoalsPage      from './pages/GoalsPage';
-import AccountsPage   from './pages/AccountsPage';
-import RecurringPage  from './pages/RecurringPage';
+import LoginPage       from './pages/LoginPage';
+import Dashboard       from './pages/Dashboard';
+import CategoriesPage  from './pages/CategoriesPage';
+import GoalsPage       from './pages/GoalsPage';
+import AccountsPage    from './pages/AccountsPage';
+import RecurringPage   from './pages/RecurringPage';
+import InvestmentsPage from './pages/InvestmentsPage';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -21,13 +22,14 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login"      element={<PublicRoute><LoginPage /></PublicRoute>} />
-          <Route path="/"           element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/categories" element={<PrivateRoute><CategoriesPage /></PrivateRoute>} />
-          <Route path="/goals"      element={<PrivateRoute><GoalsPage /></PrivateRoute>} />
-          <Route path="/accounts"   element={<PrivateRoute><AccountsPage /></PrivateRoute>} />
-          <Route path="/recurring"  element={<PrivateRoute><RecurringPage /></PrivateRoute>} />
-          <Route path="*"           element={<Navigate to="/" replace />} />
+          <Route path="/login"       element={<PublicRoute><LoginPage /></PublicRoute>} />
+          <Route path="/"            element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/investments" element={<PrivateRoute><InvestmentsPage /></PrivateRoute>} />
+          <Route path="/goals"       element={<PrivateRoute><GoalsPage /></PrivateRoute>} />
+          <Route path="/accounts"    element={<PrivateRoute><AccountsPage /></PrivateRoute>} />
+          <Route path="/recurring"   element={<PrivateRoute><RecurringPage /></PrivateRoute>} />
+          <Route path="/categories"  element={<PrivateRoute><CategoriesPage /></PrivateRoute>} />
+          <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
