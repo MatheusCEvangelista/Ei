@@ -7,25 +7,20 @@ const PRESET_COLORS = [
   '#84cc16','#f97316','#8b90a4','#14b8a6',
 ];
 
-const inputStyle = {
-  width: '100%', padding: '11px 14px',
-  background: 'var(--bg3)', border: '1px solid var(--border)',
-  borderRadius: 8, color: 'var(--text)',
-};
-const labelStyle = {
-  display: 'block', fontSize: 12, color: 'var(--text2)',
-  fontWeight: 500, marginBottom: 6, letterSpacing: '0.02em',
-};
+const inputStyle = { width: '100%', padding: '11px 14px', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' };
+const labelStyle = { display: 'block', fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 6, letterSpacing: '0.02em' };
 
 export default function GoalModal({ goal, categories, onClose, onSave }) {
   const [form, setForm] = useState({
     name: '', target_amount: '', current_amount: '',
-    deadline: '', category_id: '', color: '#7c7ff7',
+    deadline: '', category_id: '', color: '#7c7ff7', investment_id: '',
   });
+  const [investments, setInvestments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    api.get('/api/investments').then(r => setInvestments(r.data));
     if (goal) setForm({
       name: goal.name,
       target_amount: goal.target_amount,
@@ -33,6 +28,7 @@ export default function GoalModal({ goal, categories, onClose, onSave }) {
       deadline: goal.deadline || '',
       category_id: goal.category_id || '',
       color: goal.color || '#7c7ff7',
+      investment_id: goal.investment_id || '',
     });
   }, [goal]);
 
@@ -49,21 +45,21 @@ export default function GoalModal({ goal, categories, onClose, onSave }) {
     } finally { setLoading(false); }
   }
 
-  const pct = form.target_amount > 0 ? Math.min(100, Math.round((form.current_amount / form.target_amount) * 100)) : 0;
+  const pct = form.target_amount > 0
+    ? Math.min(100, Math.round((Number(form.current_amount) / Number(form.target_amount)) * 100))
+    : 0;
+
+  const selectedInvestment = investments.find(i => i.id === form.investment_id);
+  const investedValue = selectedInvestment
+    ? Number(selectedInvestment.quantity) * Number(selectedInvestment.avg_price)
+    : 0;
+  const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50, padding: 0,
-    }} onClick={onClose}>
-      <div style={{
-        background: 'var(--bg2)', border: '1px solid var(--border-md)',
-        borderRadius: '18px 18px 0 0', width: '100%', maxWidth: 480,
-        padding: '8px 24px 32px', boxShadow: 'var(--shadow)',
-      }} className="fade-up" onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 50, overflowY: 'auto' }} onClick={onClose}>
+      <div style={{ background: 'var(--bg2)', border: '1px solid var(--border-md)', borderRadius: '18px 18px 0 0', width: '100%', maxWidth: 480, padding: '8px 24px 32px', boxShadow: 'var(--shadow)' }} className="fade-up" onClick={e => e.stopPropagation()}>
 
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--bg3)', margin: '10px auto 20px' }} />
-
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
           <h2 style={{ fontSize: 16, fontWeight: 600, letterSpacing: '-0.02em' }}>
             {goal ? 'Editar meta' : 'Nova meta'}
@@ -74,7 +70,7 @@ export default function GoalModal({ goal, categories, onClose, onSave }) {
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-            {/* Preview barra de progresso */}
+            {/* Preview barra */}
             <div style={{ background: 'var(--bg3)', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 500, color: form.name ? 'var(--text)' : 'var(--text3)' }}>
@@ -107,7 +103,9 @@ export default function GoalModal({ goal, categories, onClose, onSave }) {
                 <label style={labelStyle}>JÁ GUARDADO (R$)</label>
                 <input type="number" step="0.01" min="0" value={form.current_amount}
                   onChange={e => setForm({ ...form, current_amount: e.target.value })}
-                  placeholder="0,00" style={{ ...inputStyle, fontFamily: 'var(--mono)', color: 'var(--green)' }} />
+                  placeholder="0,00"
+                  disabled={!!form.investment_id}
+                  style={{ ...inputStyle, fontFamily: 'var(--mono)', color: 'var(--green)', opacity: form.investment_id ? 0.5 : 1 }} />
               </div>
             </div>
 
@@ -127,22 +125,54 @@ export default function GoalModal({ goal, categories, onClose, onSave }) {
               </div>
             </div>
 
+            {/* Vincular investimento — OPCIONAL */}
+            <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: form.investment_id ? 12 : 0 }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>📈 Vincular investimento</p>
+                  <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>O progresso será calculado pelo valor investido</p>
+                </div>
+                {/* Toggle */}
+                <button type="button" onClick={() => setForm({ ...form, investment_id: form.investment_id ? '' : (investments[0]?.id || '') })}
+                  style={{
+                    width: 40, height: 22, borderRadius: 99, border: 'none', cursor: 'pointer',
+                    background: form.investment_id ? 'var(--indigo)' : 'var(--bg2)',
+                    transition: 'background 0.2s', position: 'relative', flexShrink: 0,
+                  }}>
+                  <span style={{
+                    position: 'absolute', top: 3, width: 16, height: 16, borderRadius: '50%', background: '#fff',
+                    transition: 'left 0.2s', left: form.investment_id ? 21 : 3,
+                  }} />
+                </button>
+              </div>
+
+              {form.investment_id && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <select value={form.investment_id} onChange={e => setForm({ ...form, investment_id: e.target.value })} style={inputStyle}>
+                    {investments.map(i => <option key={i.id} value={i.id}>{i.name}{i.ticker ? ` (${i.ticker})` : ''}</option>)}
+                  </select>
+                  {selectedInvestment && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', background: 'var(--indigo-dim)', borderRadius: 8 }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>Valor atual investido</span>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 600, color: 'var(--indigo)' }}>{fmt(investedValue)}</span>
+                    </div>
+                  )}
+                  <p style={{ fontSize: 11, color: 'var(--text3)' }}>
+                    O campo "Já guardado" será ignorado — o app usará o total investido automaticamente.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Cor */}
             <div>
               <label style={labelStyle}>COR</label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
                 {PRESET_COLORS.map(color => (
                   <button key={color} type="button" onClick={() => setForm({ ...form, color })}
-                    style={{
-                      width: '100%', aspectRatio: '1', borderRadius: 9, background: color,
-                      border: form.color === color ? '2px solid #fff' : '2px solid transparent',
-                      cursor: 'pointer', boxShadow: form.color === color ? `0 0 0 3px ${color}55` : 'none',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'transform 0.15s',
-                    }}
+                    style={{ width: '100%', aspectRatio: '1', borderRadius: 9, background: color, border: form.color === color ? '2px solid #fff' : '2px solid transparent', cursor: 'pointer', boxShadow: form.color === color ? `0 0 0 3px ${color}55` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.15s' }}
                     onMouseOver={e => e.currentTarget.style.transform = 'scale(1.1)'}
-                    onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-                  >
+                    onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}>
                     {form.color === color && (
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />

@@ -59,17 +59,16 @@ export default function GoalsPage() {
 
   const daysLeft = deadline => {
     if (!deadline) return null;
-    const diff = Math.ceil((new Date(deadline) - new Date()) / 86400000);
-    return diff;
+    return Math.ceil((new Date(deadline) - new Date()) / 86400000);
   };
 
   const monthlyNeeded = goal => {
-    const remaining = goal.target_amount - goal.current_amount;
+    const effective = goal.investment_id ? (goal.investment_current_amount || 0) : goal.current_amount;
+    const remaining = goal.target_amount - effective;
     if (remaining <= 0) return 0;
     const days = daysLeft(goal.deadline);
     if (!days || days <= 0) return remaining;
-    const months = Math.max(1, Math.ceil(days / 30));
-    return remaining / months;
+    return remaining / Math.max(1, Math.ceil(days / 30));
   };
 
   return (
@@ -82,11 +81,9 @@ export default function GoalsPage() {
             <h1 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.03em' }}>Metas de economia</h1>
             <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4 }}>Acompanhe seus objetivos financeiros</p>
           </div>
-          <button onClick={() => setShowModal(true)} style={{
-            padding: '9px 16px', borderRadius: 10, border: 'none',
-            background: 'linear-gradient(135deg, var(--indigo), #a78bfa)',
-            color: '#fff', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-          }}>＋ Nova meta</button>
+          <button onClick={() => setShowModal(true)} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, var(--indigo), #a78bfa)', color: '#fff', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            ＋ Nova meta
+          </button>
         </div>
 
         {loading ? (
@@ -104,33 +101,39 @@ export default function GoalsPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {goals.map(goal => {
-              const pct = Math.min(100, Math.round((goal.current_amount / goal.target_amount) * 100));
+              // Se vinculado a investimento, usa o valor investido como progresso
+              const effectiveAmount = goal.investment_id
+                ? (goal.investment_current_amount || 0)
+                : Number(goal.current_amount);
+              const done = effectiveAmount >= goal.target_amount;
               const days = daysLeft(goal.deadline);
-              const done = pct >= 100;
+
               return (
-                <div key={goal.id} style={{
-                  background: 'var(--bg2)', border: `1px solid ${done ? 'rgba(45,212,160,0.25)' : 'var(--border)'}`,
-                  borderRadius: 14, padding: '18px 20px',
-                }} className="fade-up">
+                <div key={goal.id} style={{ background: 'var(--bg2)', border: `1px solid ${done ? 'rgba(45,212,160,0.25)' : 'var(--border)'}`, borderRadius: 14, padding: '18px 20px' }} className="fade-up">
+
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{
-                        width: 40, height: 40, borderRadius: 11, background: (goal.color || '#7c7ff7') + '22',
-                        border: `1px solid ${(goal.color || '#7c7ff7')}44`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: goal.color || '#7c7ff7', fontSize: 18,
-                      }}>🎯</div>
+                      <div style={{ width: 40, height: 40, borderRadius: 11, background: (goal.color || '#7c7ff7') + '22', border: `1px solid ${(goal.color || '#7c7ff7')}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+                        {goal.investment_id ? '📈' : '🎯'}
+                      </div>
                       <div>
                         <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{goal.name}</p>
-                        {goal.categories && (
-                          <span style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: goal.categories.color, display: 'inline-block' }} />
-                            {goal.categories.name}
-                          </span>
-                        )}
+                        <div style={{ display: 'flex', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                          {goal.categories && (
+                            <span style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: goal.categories.color, display: 'inline-block' }} />
+                              {goal.categories.name}
+                            </span>
+                          )}
+                          {goal.investment_id && (
+                            <span style={{ fontSize: 11, color: 'var(--indigo)', background: 'var(--indigo-dim)', borderRadius: 4, padding: '1px 6px' }}>
+                              📈 {goal.investment_name}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       {done && <span style={{ fontSize: 11, background: 'var(--green-dim)', color: 'var(--green)', borderRadius: 6, padding: '3px 8px', fontWeight: 600 }}>✓ Concluída</span>}
                       {!done && days !== null && (
                         <span style={{ fontSize: 11, color: days < 30 ? 'var(--red)' : 'var(--text3)', background: days < 30 ? 'var(--red-dim)' : 'var(--bg3)', borderRadius: 6, padding: '3px 8px' }}>
@@ -142,33 +145,44 @@ export default function GoalsPage() {
                     </div>
                   </div>
 
-                  <ProgressBar value={goal.current_amount} target={goal.target_amount} color={goal.color} />
+                  <ProgressBar value={effectiveAmount} target={goal.target_amount} color={goal.color} />
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 }}>
+                  {/* Rodapé da meta */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, flexWrap: 'wrap', gap: 8 }}>
                     {!done && (
                       <span style={{ fontSize: 12, color: 'var(--text3)' }}>
                         Guardar aprox. <span style={{ color: 'var(--text)', fontFamily: 'var(--mono)', fontWeight: 500 }}>{fmt(monthlyNeeded(goal))}/mês</span>
                       </span>
                     )}
-                    {!done && (
+
+                    {/* Botão depositar só aparece se NÃO vinculado a investimento */}
+                    {!done && !goal.investment_id && (
                       depositGoal?.id === goal.id ? (
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                          <input
-                            type="number" step="0.01" min="0"
-                            value={depositAmount} onChange={e => setDepositAmount(e.target.value)}
+                          <input type="number" step="0.01" min="0" value={depositAmount}
+                            onChange={e => setDepositAmount(e.target.value)}
                             placeholder="Valor"
-                            style={{ width: 110, padding: '6px 10px', fontSize: 13, borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)' }}
-                          />
-                          <button onClick={() => handleDeposit(goal)} disabled={depositLoading} style={{ fontSize: 12, color: '#fff', background: 'var(--green)', border: 'none', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font)' }}>
+                            style={{ width: 110, padding: '6px 10px', fontSize: 13, borderRadius: 8, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)' }} />
+                          <button onClick={() => handleDeposit(goal)} disabled={depositLoading}
+                            style={{ fontSize: 12, color: '#fff', background: 'var(--green)', border: 'none', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font)' }}>
                             {depositLoading ? '...' : 'Confirmar'}
                           </button>
-                          <button onClick={() => { setDepositGoal(null); setDepositAmount(''); }} style={{ fontSize: 12, color: 'var(--text3)', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', fontFamily: 'var(--font)' }}>✕</button>
+                          <button onClick={() => { setDepositGoal(null); setDepositAmount(''); }}
+                            style={{ fontSize: 12, color: 'var(--text3)', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 7, padding: '6px 10px', cursor: 'pointer', fontFamily: 'var(--font)' }}>✕</button>
                         </div>
                       ) : (
-                        <button onClick={() => setDepositGoal(goal)} style={{ fontSize: 12, color: 'var(--green)', background: 'var(--green-dim)', border: 'none', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 500 }}>
+                        <button onClick={() => setDepositGoal(goal)}
+                          style={{ fontSize: 12, color: 'var(--green)', background: 'var(--green-dim)', border: 'none', borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: 500 }}>
                           + Depositar
                         </button>
                       )
+                    )}
+
+                    {/* Badge quando vinculado a investimento */}
+                    {goal.investment_id && !done && (
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+                        Progresso atualizado automaticamente pelo investimento
+                      </span>
                     )}
                   </div>
                 </div>

@@ -8,24 +8,29 @@ const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: '
 export default function AccountsPage() {
   const [accounts, setAccounts] = useState([]);
   const [balances, setBalances] = useState({});
+  const [txCounts, setTxCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState(null); // para ver extrato
 
   async function load() {
     setLoading(true);
-    const { data } = await api.get('/api/accounts');
-    setAccounts(data);
+    const { data: accs } = await api.get('/api/accounts');
+    setAccounts(accs);
 
-    // Busca saldo de cada conta (soma de transações)
+    // Busca saldo de cada conta individualmente usando account_id
     const bals = {};
-    await Promise.all(data.map(async acc => {
+    const counts = {};
+    await Promise.all(accs.map(async acc => {
       const { data: txs } = await api.get(`/api/transactions?account_id=${acc.id}`);
       const income  = txs.filter(t => t.type === 'income').reduce((s, t)  => s + Number(t.amount), 0);
       const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-      bals[acc.id] = income - expense;
+      bals[acc.id]   = income - expense;
+      counts[acc.id] = txs.length;
     }));
     setBalances(bals);
+    setTxCounts(counts);
     setLoading(false);
   }
 
@@ -34,6 +39,7 @@ export default function AccountsPage() {
   async function handleDelete(id) {
     if (!confirm('Excluir esta conta? As transações vinculadas ficarão sem conta.')) return;
     await api.delete(`/api/accounts/${id}`);
+    if (selectedAccount?.id === id) setSelectedAccount(null);
     load();
   }
 
@@ -42,25 +48,20 @@ export default function AccountsPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Navbar />
-      <main style={{ maxWidth: 640, margin: '0 auto', padding: '24px 14px 80px' }}>
+      <main style={{ maxWidth: 700, margin: '0 auto', padding: '24px 14px 80px' }}>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.03em' }}>Minhas contas</h1>
-            <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4 }}>Saldo consolidado de todas as contas</p>
+            <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: 4 }}>Saldo individual por conta</p>
           </div>
-          <button onClick={() => setShowModal(true)} style={{
-            padding: '9px 16px', borderRadius: 10, border: 'none',
-            background: 'linear-gradient(135deg, var(--indigo), #a78bfa)',
-            color: '#fff', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-          }}>＋ Nova conta</button>
+          <button onClick={() => setShowModal(true)} style={{ padding: '9px 16px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, var(--indigo), #a78bfa)', color: '#fff', fontFamily: 'var(--font)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            ＋ Nova conta
+          </button>
         </div>
 
         {/* Card total consolidado */}
-        <div style={{
-          background: 'linear-gradient(135deg, var(--indigo), #a78bfa)',
-          borderRadius: 16, padding: '20px 24px', marginBottom: 16,
-        }}>
+        <div style={{ background: 'linear-gradient(135deg, var(--indigo), #a78bfa)', borderRadius: 16, padding: '20px 24px', marginBottom: 16 }}>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Saldo total consolidado</p>
           <p style={{ fontSize: 30, fontWeight: 600, color: '#fff', fontFamily: 'var(--mono)', letterSpacing: '-0.03em' }}>
             {loading ? '—' : fmt(totalBalance)}
@@ -68,29 +69,65 @@ export default function AccountsPage() {
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>{accounts.length} conta{accounts.length !== 1 ? 's' : ''}</p>
         </div>
 
-        {/* Lista de contas */}
-        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-          {loading ? (
-            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 60 }} />)}
-            </div>
-          ) : accounts.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)' }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>🏦</div>
-              <p style={{ fontSize: 13 }}>Nenhuma conta cadastrada.</p>
-              <button onClick={() => setShowModal(true)} style={{ marginTop: 10, background: 'none', border: 'none', color: 'var(--indigo)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font)' }}>
-                Adicionar primeira conta →
-              </button>
-            </div>
-          ) : accounts.map((acc, i) => {
-            const bal = balances[acc.id] ?? 0;
-            return (
-              <AccountRow key={acc.id} acc={acc} balance={bal} isLast={i === accounts.length - 1}
-                onEdit={() => { setEditing(acc); setShowModal(true); }}
-                onDelete={() => handleDelete(acc.id)} />
-            );
-          })}
-        </div>
+        {/* Grid de contas — cada uma separada */}
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 90 }} />)}
+          </div>
+        ) : accounts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text3)', background: 'var(--bg2)', borderRadius: 14, border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>🏦</div>
+            <p style={{ fontSize: 13 }}>Nenhuma conta cadastrada.</p>
+            <button onClick={() => setShowModal(true)} style={{ marginTop: 10, background: 'none', border: 'none', color: 'var(--indigo)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font)' }}>
+              Adicionar primeira conta →
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {accounts.map(acc => {
+              const bal   = balances[acc.id] ?? 0;
+              const count = txCounts[acc.id] ?? 0;
+              const isSelected = selectedAccount?.id === acc.id;
+              return (
+                <div key={acc.id} style={{ background: 'var(--bg2)', border: `1px solid ${isSelected ? (acc.color || 'var(--indigo)') + '55' : 'var(--border)'}`, borderRadius: 14, overflow: 'hidden', transition: 'border-color 0.2s' }}>
+                  {/* Cabeçalho da conta */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', cursor: 'pointer' }}
+                    onClick={() => setSelectedAccount(isSelected ? null : acc)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 12, background: (acc.color || '#7c7ff7') + '22', border: `1px solid ${(acc.color || '#7c7ff7')}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
+                        {acc.icon || '🏦'}
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{acc.name}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                          {acc.bank || 'Conta'} · {count} transaç{count !== 1 ? 'ões' : 'ão'}
+                        </p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: bal >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                          {fmt(bal)}
+                        </p>
+                        <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>saldo atual</p>
+                      </div>
+                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>{isSelected ? '▲' : '▼'}</span>
+                    </div>
+                  </div>
+
+                  {/* Ações */}
+                  <div style={{ display: 'flex', gap: 8, padding: '0 20px 14px' }}>
+                    <button onClick={() => { setEditing(acc); setShowModal(true); }} style={{ fontSize: 12, color: 'var(--indigo)', background: 'var(--indigo-dim)', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontFamily: 'var(--font)' }}>Editar</button>
+                    <button onClick={() => handleDelete(acc.id)} style={{ fontSize: 12, color: 'var(--red)', background: 'var(--red-dim)', border: 'none', borderRadius: 7, padding: '5px 12px', cursor: 'pointer', fontFamily: 'var(--font)' }}>Excluir</button>
+                  </div>
+
+                  {/* Extrato da conta expandido */}
+                  {isSelected && <AccountStatement account={acc} />}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </main>
 
       {showModal && (
@@ -104,40 +141,55 @@ export default function AccountsPage() {
   );
 }
 
-function AccountRow({ acc, balance, isLast, onEdit, onDelete }) {
-  const [hovered, setHovered] = useState(false);
-  const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+// Sub-componente: extrato da conta selecionada
+function AccountStatement({ account }) {
+  const [txs, setTxs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get(`/api/transactions?account_id=${account.id}`)
+      .then(r => { setTxs(r.data); setLoading(false); });
+  }, [account.id]);
+
+  const fmt    = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const fmtDate = d => new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
 
   return (
-    <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 18px', transition: 'background 0.15s',
-        background: hovered ? 'var(--bg3)' : 'transparent',
-        borderBottom: isLast ? 'none' : '1px solid var(--border)',
-      }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          width: 40, height: 40, borderRadius: 11, background: (acc.color || '#7c7ff7') + '22',
-          border: `1px solid ${(acc.color || '#7c7ff7')}44`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-        }}>{acc.icon || '🏦'}</div>
-        <div>
-          <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{acc.name}</p>
-          {acc.bank && <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{acc.bank}</p>}
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: balance >= 0 ? 'var(--green)' : 'var(--red)' }}>
-          {fmt(balance)}
+    <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
+      <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--border)' }}>
+        <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Extrato — todas as transações desta conta
         </span>
-        {hovered && (
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={onEdit} style={{ fontSize: 12, color: 'var(--indigo)', background: 'var(--indigo-dim)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font)' }}>Editar</button>
-            <button onClick={onDelete} style={{ fontSize: 12, color: 'var(--red)', background: 'var(--red-dim)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'var(--font)' }}>Excluir</button>
-          </div>
-        )}
       </div>
+
+      {loading ? (
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 40 }} />)}
+        </div>
+      ) : txs.length === 0 ? (
+        <p style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 13, padding: '20px 0' }}>
+          Nenhuma transação vinculada a esta conta ainda.
+        </p>
+      ) : (
+        <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+          {txs.map(tx => (
+            <div key={tx.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 7, background: tx.type === 'income' ? 'var(--green-dim)' : 'var(--red-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: tx.type === 'income' ? 'var(--green)' : 'var(--red)', fontWeight: 700 }}>
+                  {tx.type === 'income' ? '↑' : '↓'}
+                </div>
+                <div>
+                  <p style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{tx.description || tx.categories?.name || '—'}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>{fmtDate(tx.date)}{tx.categories ? ` · ${tx.categories.name}` : ''}</p>
+                </div>
+              </div>
+              <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 500, color: tx.type === 'income' ? 'var(--green)' : 'var(--red)' }}>
+                {tx.type === 'income' ? '+' : '-'}{fmt(tx.amount)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

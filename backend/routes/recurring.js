@@ -51,18 +51,19 @@ router.put('/:id', async (req, res) => {
 
 // Excluir recorrente
 router.delete('/:id', async (req, res) => {
-  const { error } = await db(req.token).from('recurring_transactions').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  const { error } = await db(req.token)
+    .from('recurring_transactions')
+    .delete()
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id);
   if (error) return res.status(400).json({ error: error.message });
   res.json({ message: 'Recorrente excluída' });
 });
 
-// Gerar transações do mês atual (chamado no login ou manualmente)
+// Gerar transações — mensal e semanal corrigido
 router.post('/generate', async (req, res) => {
   const supabase = db(req.token);
   const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-  const currentYear = today.getFullYear();
-  const monthKey = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
 
   const { data: recurrings, error } = await supabase
     .from('recurring_transactions')
@@ -75,40 +76,50 @@ router.post('/generate', async (req, res) => {
   const created = [];
 
   for (const r of recurrings) {
-    // Verifica se já foi gerado esse mês
-    const lastCreated = r.last_created_at;
-    if (lastCreated) {
-      const last = new Date(lastCreated);
-      if (last.getMonth() + 1 === currentMonth && last.getFullYear() === currentYear) {
-        continue; // já gerou esse mês
+    if (r.frequency === 'monthly') {
+      // Gera uma vez por mês
+      const currentMonth = today.getMonth() + 1;
+      const currentYear  = today.getFullYear();
+
+      if (r.last_created_at) {
+        const last = new Date(r.last_created_at);
+        if (last.getMonth() + 1 === currentMonth && last.getFullYear() === currentYear) continue;
       }
-    }
 
-    // Define a data da transação
-    const day = r.day_of_month || today.getDate();
-    const safeDay = Math.min(day, new Date(currentYear, currentMonth, 0).getDate());
-    const txDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+      const day     = r.day_of_month || today.getDate();
+      const safeDay = Math.min(day, new Date(currentYear, currentMonth, 0).getDate());
+      const txDate  = `${currentYear}-${String(currentMonth).padStart(2,'0')}-${String(safeDay).padStart(2,'0')}`;
 
-    const { data: tx } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: req.user.id,
-        description: r.description,
-        amount: r.amount,
-        type: r.type,
-        category_id: r.category_id,
-        account_id: r.account_id,
-        date: txDate,
-      })
-      .select()
-      .single();
+      const { data: tx } = await supabase
+        .from('transactions')
+        .insert({ user_id: r.user_id, description: r.description, amount: r.amount, type: r.type, category_id: r.category_id, account_id: r.account_id, date: txDate })
+        .select().single();
 
-    if (tx) {
-      await supabase
-        .from('recurring_transactions')
-        .update({ last_created_at: txDate })
-        .eq('id', r.id);
-      created.push(tx);
+      if (tx) {
+        await supabase.from('recurring_transactions').update({ last_created_at: txDate }).eq('id', r.id);
+        created.push(tx);
+      }
+
+    } else if (r.frequency === 'weekly') {
+      // Gera toda semana — verifica se já foi criado nos últimos 7 dias
+      const lastCreated = r.last_created_at ? new Date(r.last_created_at) : null;
+      const daysSinceLast = lastCreated
+        ? Math.floor((today - lastCreated) / (1000 * 60 * 60 * 24))
+        : 999;
+
+      if (daysSinceLast < 7) continue; // já foi gerado essa semana
+
+      const txDate = today.toISOString().split('T')[0];
+
+      const { data: tx } = await supabase
+        .from('transactions')
+        .insert({ user_id: r.user_id, description: r.description, amount: r.amount, type: r.type, category_id: r.category_id, account_id: r.account_id, date: txDate })
+        .select().single();
+
+      if (tx) {
+        await supabase.from('recurring_transactions').update({ last_created_at: txDate }).eq('id', r.id);
+        created.push(tx);
+      }
     }
   }
 

@@ -11,14 +11,14 @@ function getUserSupabase(token) {
   });
 }
 
-// Listar transações (com filtro de mês/ano)
+// Listar transações com filtros de mês/ano e account_id
 router.get('/', async (req, res) => {
-  const { month, year } = req.query;
+  const { month, year, account_id } = req.query;
   const db = getUserSupabase(req.token);
 
   let query = db
     .from('transactions')
-    .select('*, categories(id, name, color)')
+    .select('*, categories(id, name, color), accounts(id, name, color, icon)')
     .eq('user_id', req.user.id)
     .order('date', { ascending: false });
 
@@ -28,6 +28,11 @@ router.get('/', async (req, res) => {
     query = query.gte('date', start).lte('date', end);
   }
 
+  // Filtro por conta — se informado, retorna só dessa conta
+  if (account_id) {
+    query = query.eq('account_id', account_id);
+  }
+
   const { data, error } = await query;
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
@@ -35,17 +40,16 @@ router.get('/', async (req, res) => {
 
 // Criar transação
 router.post('/', async (req, res) => {
-  const { amount, type, description, category_id, date } = req.body;
+  const { amount, type, description, category_id, date, account_id } = req.body;
   const db = getUserSupabase(req.token);
 
-  if (!amount || !type || !date) {
+  if (!amount || !type || !date)
     return res.status(400).json({ error: 'Valor, tipo e data são obrigatórios' });
-  }
 
   const { data, error } = await db
     .from('transactions')
-    .insert({ amount, type, description, category_id, date, user_id: req.user.id })
-    .select('*, categories(id, name, color)')
+    .insert({ amount, type, description, category_id, date, account_id: account_id || null, user_id: req.user.id })
+    .select('*, categories(id, name, color), accounts(id, name, color, icon)')
     .single();
 
   if (error) return res.status(400).json({ error: error.message });
@@ -54,16 +58,15 @@ router.post('/', async (req, res) => {
 
 // Atualizar transação
 router.put('/:id', async (req, res) => {
-  const { id } = req.params;
-  const { amount, type, description, category_id, date } = req.body;
+  const { amount, type, description, category_id, date, account_id } = req.body;
   const db = getUserSupabase(req.token);
 
   const { data, error } = await db
     .from('transactions')
-    .update({ amount, type, description, category_id, date })
-    .eq('id', id)
+    .update({ amount, type, description, category_id, date, account_id: account_id || null })
+    .eq('id', req.params.id)
     .eq('user_id', req.user.id)
-    .select('*, categories(id, name, color)')
+    .select('*, categories(id, name, color), accounts(id, name, color, icon)')
     .single();
 
   if (error) return res.status(400).json({ error: error.message });
@@ -72,13 +75,11 @@ router.put('/:id', async (req, res) => {
 
 // Excluir transação
 router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
   const db = getUserSupabase(req.token);
-
   const { error } = await db
     .from('transactions')
     .delete()
-    .eq('id', id)
+    .eq('id', req.params.id)
     .eq('user_id', req.user.id);
 
   if (error) return res.status(400).json({ error: error.message });
