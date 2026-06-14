@@ -6,15 +6,13 @@ const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const session = JSON.parse(localStorage.getItem('session') || 'null');
-  if (session?.access_token) {
-    config.headers.Authorization = `Bearer ${session.access_token}`;
-  }
+  if (session?.access_token) config.headers.Authorization = `Bearer ${session.access_token}`;
   return config;
 });
 
 api.interceptors.response.use(
-  (res) => res,
-  (err) => {
+  res => res,
+  err => {
     if (err.response?.status === 401) {
       localStorage.removeItem('session');
       localStorage.removeItem('user');

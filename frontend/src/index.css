@@ -49,7 +49,6 @@ input, select, textarea {
   border-radius: var(--radius-sm);
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
-  /* Evita zoom no iOS ao focar em inputs */
   font-size: 16px !important;
 }
 input:focus, select:focus {
@@ -77,34 +76,25 @@ select option { background: var(--bg2); }
   border-radius: var(--radius-sm);
 }
 
-/* Grid de gráficos: 2 colunas em desktop, 1 em mobile */
-.charts-grid {
-  grid-template-columns: 1fr 1fr;
-}
+.charts-grid  { grid-template-columns: 1fr 1fr; }
+.summary-grid { grid-template-columns: repeat(3, 1fr); }
+
 @media (max-width: 640px) {
-  .charts-grid {
-    grid-template-columns: 1fr !important;
-  }
+  .charts-grid     { grid-template-columns: 1fr !important; }
+  .summary-grid    { grid-template-columns: 1fr !important; gap: 8px !important; }
+  .hide-mobile     { display: none !important; }
+  .stack-mobile    { flex-direction: column !important; }
+  .full-mobile     { width: 100% !important; min-width: 0 !important; }
+  .scroll-mobile   { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .modal-wrap      { align-items: flex-end !important; padding: 0 !important; }
+  .modal-box       { border-radius: 18px 18px 0 0 !important; max-height: 92vh; overflow-y: auto; }
+  .filters-row     { flex-direction: column !important; }
+  .filters-row > * { width: 100% !important; }
+  .text-truncate   { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .page-main       { padding-left: 12px !important; padding-right: 12px !important; }
+  .grid-2col       { grid-template-columns: 1fr !important; }
 }
 
-/* Cards de resumo: 3 colunas em desktop, 1 em mobile */
-.summary-grid {
-  grid-template-columns: repeat(3, 1fr);
-}
-@media (max-width: 640px) {
-  .summary-grid {
-    grid-template-columns: 1fr !important;
-    gap: 8px !important;
-  }
-}
-
-/* Filtros de transação em coluna no mobile */
-@media (max-width: 640px) {
-  .filters-row {
-    flex-direction: column !important;
-  }
-  .filters-row select,
-  .filters-row input {
-    width: 100% !important;
-  }
+@media (min-width: 641px) and (max-width: 960px) {
+  .nb-links a { padding: 5px 7px !important; font-size: 12px !important; }
 }
