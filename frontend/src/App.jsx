@@ -9,6 +9,7 @@ import AccountsPage    from './pages/AccountsPage';
 import RecurringPage   from './pages/RecurringPage';
 import InvestmentsPage from './pages/InvestmentsPage';
 import CalculatorsPage from './pages/CalculatorsPage';
+import BudgetsPage     from './pages/BudgetsPage';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/recurring"   element={<PrivateRoute><RecurringPage /></PrivateRoute>} />
           <Route path="/categories"  element={<PrivateRoute><CategoriesPage /></PrivateRoute>} />
           <Route path="/calculators" element={<PrivateRoute><CalculatorsPage /></PrivateRoute>} />
+          <Route path="/budgets"      element={<PrivateRoute><BudgetsPage /></PrivateRoute>} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
         <PWAInstallPrompt />

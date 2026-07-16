@@ -19,6 +19,7 @@ export default function Navbar() {
     { to:'/accounts',    label:'Contas'        },
     { to:'/categories',  label:'Categorias'    },
     { to:'/calculators', label:'Calculadoras'  },
+    { to:'/budgets',     label:'Tetos'         },
   ];
 
   const isDark = theme === 'dark';

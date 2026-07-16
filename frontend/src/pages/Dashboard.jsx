@@ -8,6 +8,7 @@ import TransactionModal  from '../components/TransactionModal';
 import ImportModal       from '../components/ImportModal';
 import MonthSelector     from '../components/MonthSelector';
 import MonthlyAnalysis   from '../components/MonthlyAnalysis';
+import BudgetWidget      from '../components/BudgetWidget';
 import Navbar            from '../components/Navbar';
 import { useExportCSV }  from '../hooks/useExportCSV';
 
@@ -81,6 +82,8 @@ export default function Dashboard() {
               <PieChartCategories data={summary.byCategory}/>
             </div>
           </div>
+          <BudgetWidget month={month} year={year}/>
+
           <div style={card}>
             <p style={{fontSize:11,color:'var(--text3)',fontWeight:600,letterSpacing:'0.07em',textTransform:'uppercase',marginBottom:16}}>Transações do mês</p>
             <TransactionList transactions={transactions} loading={loading}

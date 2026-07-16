@@ -11,6 +11,7 @@ const accountRoutes     = require('./routes/accounts');
 const recurringRoutes   = require('./routes/recurring');
 const aiRoutes          = require('./routes/ai');
 const investmentRoutes  = require('./routes/investments');
+const budgetRoutes      = require('./routes/budgets');
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/accounts',     accountRoutes);
 app.use('/api/recurring',    recurringRoutes);
 app.use('/api/ai',           aiRoutes);
 app.use('/api/investments',  investmentRoutes);
+app.use('/api/budgets',      budgetRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
