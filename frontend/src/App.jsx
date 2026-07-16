@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import LoginPage       from './pages/LoginPage';
 import Dashboard       from './pages/Dashboard';
 import CategoriesPage  from './pages/CategoriesPage';
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="/calculators" element={<PrivateRoute><CalculatorsPage /></PrivateRoute>} />
           <Route path="*"            element={<Navigate to="/" replace />} />
         </Routes>
+        <PWAInstallPrompt />
       </BrowserRouter>
     </AuthProvider>
   );
