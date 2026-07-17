@@ -33,6 +33,16 @@ export default function BudgetsPage() {
   const [editValue,   setEditValue]   = useState('');
   const [saving,      setSaving]      = useState(false);
   const [tab,         setTab]         = useState('budgets'); // 'budgets' | 'suggestions'
+  const [showManual,  setShowManual]  = useState(false);
+  const [manualCats,  setManualCats]  = useState([]);
+  const [manualForm,  setManualForm]  = useState({ category_id:'', amount:'' });
+  const [savingManual,setSavingManual]= useState(false);
+
+  async function loadCategories() {
+    if (manualCats.length) return;
+    const { data } = await api.get('/api/categories');
+    setManualCats(data);
+  }
 
   async function loadBudgets() {
     setLoading(true);
@@ -65,6 +75,18 @@ export default function BudgetsPage() {
     setSaving(false);
   }
 
+  async function saveManual() {
+    if (!manualForm.category_id || !manualForm.amount) return;
+    setSavingManual(true);
+    try {
+      await api.post('/api/budgets', { category_id: manualForm.category_id, amount: parseFloat(manualForm.amount) });
+      setShowManual(false);
+      setManualForm({ category_id:'', amount:'' });
+      await loadBudgets();
+    } catch(e){ console.error(e); }
+    setSavingManual(false);
+  }
+
   async function deleteBudget(id) {
     if (!confirm('Remover este teto?')) return;
     await api.delete(`/api/budgets/${id}`);
@@ -93,9 +115,14 @@ export default function BudgetsPage() {
             <h1 style={{fontSize:20,fontWeight:600,letterSpacing:'-0.03em'}}>Tetos de gastos</h1>
             <p style={{color:'var(--text3)',fontSize:13,marginTop:4}}>Defina limites por categoria e acompanhe</p>
           </div>
-          <button onClick={()=>setTab('suggestions')} style={{padding:'9px 16px',borderRadius:10,border:'none',background:'linear-gradient(135deg,var(--indigo),#a78bfa)',color:'#fff',fontFamily:'var(--font)',fontSize:13,fontWeight:600,cursor:'pointer'}}>
-            ✨ Ver sugestões
-          </button>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>{setShowManual(true);loadCategories();}} style={{padding:'9px 14px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text2)',fontFamily:'var(--font)',fontSize:13,fontWeight:500,cursor:'pointer'}}>
+              ＋ Teto manual
+            </button>
+            <button onClick={()=>setTab('suggestions')} style={{padding:'9px 16px',borderRadius:10,border:'none',background:'linear-gradient(135deg,var(--indigo),#a78bfa)',color:'#fff',fontFamily:'var(--font)',fontSize:13,fontWeight:600,cursor:'pointer'}}>
+              ✨ Ver sugestões
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -257,5 +284,42 @@ function SuggestionCard({ suggestion:s, onApply, saving }) {
         </button>
       </div>
     </div>
-  );
+  
+      {/* Modal de teto manual */}
+      {showManual && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',backdropFilter:'blur(4px)',display:'flex',alignItems:'flex-end',justifyContent:'center',zIndex:50}} onClick={()=>setShowManual(false)}>
+          <div style={{background:'var(--bg2)',border:'1px solid var(--border-md)',borderRadius:'18px 18px 0 0',width:'100%',maxWidth:480,padding:'8px 24px 32px',boxShadow:'var(--shadow)'}} className="fade-up" onClick={e=>e.stopPropagation()}>
+            <div style={{width:36,height:4,borderRadius:2,background:'var(--bg3)',margin:'10px auto 20px'}}/>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:22}}>
+              <h2 style={{fontSize:16,fontWeight:600}}>Definir teto manualmente</h2>
+              <button onClick={()=>setShowManual(false)} style={{width:28,height:28,borderRadius:7,border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text2)',cursor:'pointer',fontSize:16}}>×</button>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:16}}>
+              <div>
+                <label style={{display:'block',fontSize:12,color:'var(--text2)',fontWeight:500,marginBottom:6,letterSpacing:'0.02em'}}>CATEGORIA</label>
+                <select value={manualForm.category_id} onChange={e=>setManualForm({...manualForm,category_id:e.target.value})}
+                  style={{width:'100%',padding:'11px 14px',background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:8,color:manualForm.category_id?'var(--text)':'var(--text3)'}}>
+                  <option value="">Selecione uma categoria</option>
+                  {manualCats.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{display:'block',fontSize:12,color:'var(--text2)',fontWeight:500,marginBottom:6,letterSpacing:'0.02em'}}>VALOR LIMITE (R$)</label>
+                <input type="number" step="0.01" min="0" value={manualForm.amount} onChange={e=>setManualForm({...manualForm,amount:e.target.value})}
+                  placeholder="Ex: 500,00"
+                  style={{width:'100%',padding:'11px 14px',background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)',fontFamily:'var(--mono)',fontSize:16}}/>
+              </div>
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>setShowManual(false)} style={{flex:1,padding:'13px 0',borderRadius:10,fontSize:14,fontWeight:500,border:'1px solid var(--border)',background:'transparent',color:'var(--text2)',cursor:'pointer',fontFamily:'var(--font)'}}>Cancelar</button>
+                <button onClick={saveManual} disabled={savingManual||!manualForm.category_id||!manualForm.amount}
+                  style={{flex:2,padding:'13px 0',borderRadius:10,fontSize:14,fontWeight:600,border:'none',cursor:'pointer',fontFamily:'var(--font)',background:savingManual?'var(--bg3)':'linear-gradient(135deg,var(--indigo),#a78bfa)',color:savingManual?'var(--text3)':'#fff',opacity:(!manualForm.category_id||!manualForm.amount)?0.5:1}}>
+                  {savingManual?'Salvando...':'Salvar teto'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+    );
 }
