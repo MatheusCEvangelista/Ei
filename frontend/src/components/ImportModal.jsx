@@ -207,6 +207,78 @@ function parseItauPDF(text) {
   return transactions;
 }
 
+
+// ─── Parser PDF Sicoob ────────────────────────────────────────────────────
+function parseSicoobPDF(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // Extrai ano do período: "PERÍODO: 01/04/2026 - 30/04/2026"
+  const periodMatch = text.match(/PER[IÍ]ODO:\s*\d{2}\/\d{2}\/(\d{4})/i);
+  const year = periodMatch ? periodMatch[1] : String(new Date().getFullYear());
+
+  // Palavras que indicam lançamentos internos (ignorar)
+  const skipKeywords = [
+    'saldo do dia','saldo anterior','saldo bloq','saldo disponível',
+    'est.déb.conv','deb.conv.dem.empres','deb.conv.dem',
+    'juros vencidos','tarifas vencidas','cheque especial',
+  ];
+
+  const transactions = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Linha de transação: DD/MM <descrição> <valor>C ou D
+    // Exemplos:
+    //   30/04 COMPRA NAC DEBIT 88,13D
+    //   22/04 PIX RECEB.OUTRA IF 800,00C
+    //   22/04 DÉB.PGTO.BOLETO INT 305,03D
+    const txMatch = line.match(/^(\d{2})\/(\d{2})\s+(.+?)\s+([\d.,]+)([CD])$/);
+    if (!txMatch) { i++; continue; }
+
+    const [, day, month, histDesc, rawVal, cd] = txMatch;
+    const date   = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`;
+    const amount = parseFloat(rawVal.replace(/\./g,'').replace(',','.'));
+    const type   = cd === 'C' ? 'income' : 'expense';
+
+    if (isNaN(amount) || amount === 0) { i++; continue; }
+
+    const descLower = histDesc.toLowerCase();
+    const skip = skipKeywords.some(kw => descLower.includes(kw));
+
+    // Coleta linhas extras de descrição (nome do estabelecimento, destinatário…)
+    const extraLines = [];
+    i++;
+    while (i < lines.length) {
+      const next = lines[i];
+      if (/^\d{2}\/\d{2}\s/.test(next)) break;        // próxima transação
+      if (/^DOC\.:/.test(next)) { i++; break; }         // fim do bloco
+      if (/^(RESUMO|\(\+\)|\(\-\)|\(=\)|SALDO|ENCARGOS|VENCIMENTO|TAXA|CUSTO|SAC|OUVIDORIA|Central|SOLICITE|ADQUIRA|000 )/i.test(next)) break;
+      extraLines.push(next);
+      i++;
+    }
+
+    // Monta descrição final: tipo de operação + estabelecimento/destinatário
+    const extra = extraLines
+      .filter(l => !/^Pagamento Pix$|^Recebimento Pix$|^\*{3}|^\d{2}\.\d{3}\.\d{3}|^Ola,/i.test(l))
+      .slice(0,1).join(' ');
+    const fullDesc = extra ? `${histDesc} - ${extra}` : histDesc;
+
+    transactions.push({
+      date,
+      description: fullDesc.slice(0, 80),
+      amount,
+      type,
+      category_id: '',
+      skip,
+    });
+  }
+
+  if (!transactions.length) throw new Error('Nenhuma transação encontrada. Verifique se é um extrato Sicoob válido.');
+  return transactions;
+}
+
 // ─── Config dos bancos ────────────────────────────────────────────────────
 const BANKS = [
   {
@@ -225,6 +297,12 @@ const BANKS = [
     accept: '.pdf,application/pdf',
     badge: 'Novo',
     steps: ['Acesse o app ou site da Pluxee','Vá em Extrato → Multibenefícios','Exporte o extrato em PDF','Selecione o período'],
+  },
+  {
+    id: 'sicoob', label: 'Sicoob', icon: '🟢', format: 'PDF',
+    accept: '.pdf,application/pdf',
+    badge: 'Novo',
+    steps: ['Acesse o internet banking do Sicoob','Vá em Extrato → Conta Corrente','Selecione o período desejado','Clique em "Emitir" e salve o PDF'],
   },
   {
     id: 'itau', label: 'Itaú', icon: '🏦', format: 'PDF',
@@ -326,7 +404,7 @@ export default function ImportModal({ onClose, onSave }) {
         {step==='upload'&&(
           <div>
             <p style={labelStyle}>SELECIONE SEU BANCO / FORMATO</p>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:22}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:22}}>
               {BANKS.map(b=>(
                 <button key={b.id} onClick={()=>setBankType(b.id)} style={{padding:'14px 12px',borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'var(--font)',transition:'all 0.15s',border:`1.5px solid ${bankType===b.id?'var(--indigo)':'var(--border)'}`,background:bankType===b.id?'var(--indigo-dim)':'var(--bg3)',position:'relative'}}>
                   {b.badge&&<span style={{position:'absolute',top:8,right:8,fontSize:10,fontWeight:700,color:'var(--green)',background:'var(--green-dim)',borderRadius:4,padding:'2px 5px'}}>{b.badge}</span>}
