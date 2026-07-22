@@ -8,6 +8,11 @@ import { ThemeProvider } from './context/ThemeContext';
 const savedTheme = localStorage.getItem('theme') || 'dark';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
+// Registra SW de push separado
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw-push.js', { scope: '/' }).catch(() => {});
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>

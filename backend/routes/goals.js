@@ -17,7 +17,6 @@ router.get('/', async (req, res) => {
     .select('*, categories(id,name,color)').eq('user_id', req.user.id)
     .order('created_at', { ascending: false });
   if (error) return res.status(400).json({ error: error.message });
-
   const enriched = await Promise.all(goals.map(async goal => {
     if (!goal.investment_id) return goal;
     const { data: inv } = await supabase.from('investments')
@@ -52,17 +51,37 @@ router.post('/:id/deposit', async (req, res) => {
   const { amount } = req.body;
   if (!amount || amount<=0) return res.status(400).json({ error: 'Valor inválido' });
   const supabase = db(req.token);
-  const { data: goal } = await supabase.from('goals').select('current_amount').eq('id', req.params.id).single();
+  const { data: goal } = await supabase.from('goals').select('current_amount,target_amount,name').eq('id', req.params.id).single();
+  const newAmount = Number(goal.current_amount) + Number(amount);
   const { data, error } = await supabase.from('goals')
-    .update({ current_amount: Number(goal.current_amount)+Number(amount) })
+    .update({ current_amount: newAmount })
     .eq('id', req.params.id).eq('user_id', req.user.id)
     .select('*, categories(id,name,color)').single();
   if (error) return res.status(400).json({ error: error.message });
+
+  // Notifica se meta foi concluída
+  if (newAmount >= Number(goal.target_amount)) {
+    try {
+      const { data: prefs } = await supabase.from('notification_preferences')
+        .select('goal_completed').eq('user_id', req.user.id).single();
+      if (!prefs || prefs.goal_completed !== false) {
+        const createNotif = req.app.locals.createNotification;
+        if (createNotif) await createNotif(
+          supabase, req.user.id, 'goal_completed',
+          '🎯 Meta concluída!',
+          `Parabéns! Você atingiu sua meta "${goal.name}".`,
+          { goal_id: req.params.id }
+        );
+      }
+    } catch (_) {}
+  }
+
   res.json(data);
 });
 
 router.delete('/:id', async (req, res) => {
-  const { error } = await db(req.token).from('goals').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  const { error } = await db(req.token).from('goals').delete()
+    .eq('id', req.params.id).eq('user_id', req.user.id);
   if (error) return res.status(400).json({ error: error.message });
   res.json({ message: 'ok' });
 });
