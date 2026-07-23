@@ -22,6 +22,7 @@ export default function Navbar() {
     { to:'/categories',  label:'Categorias'    },
     { to:'/calculators', label:'Calculadoras'  },
     { to:'/budgets',     label:'Tetos'         },
+    { to:'/projections',  label:'Projeção'      },
   ];
 
   return (

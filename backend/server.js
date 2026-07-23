@@ -13,6 +13,7 @@ const investmentRoutes   = require('./routes/investments');
 const budgetRoutes       = require('./routes/budgets');
 const aiRoutes           = require('./routes/ai');
 const notificationRoutes = require('./routes/notifications');
+const projectionRoutes    = require('./routes/projections');
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/investments',   investmentRoutes);
 app.use('/api/budgets',       budgetRoutes);
 app.use('/api/ai',            aiRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/projections',   projectionRoutes);
 
 // Passa helper de notificação para as rotas que precisam
 app.locals.createNotification = notificationRoutes.createNotification;
