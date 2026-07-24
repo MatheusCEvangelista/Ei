@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import api from '../lib/api';
 
-// ─── Parser CSV Mercado Pago (antigo) ──────────────────────────────────────
+// ─── Parser CSV Mercado Pago ───────────────────────────────────────────────
 function parseMercadoPagoCSV(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const headerIdx = lines.findIndex(l => l.startsWith('RELEASE_DATE'));
@@ -28,7 +28,7 @@ function parseMercadoPagoCSV(text) {
   return transactions;
 }
 
-// ─── Extração de texto de PDF via pdfjs ───────────────────────────────────
+// ─── Extração de texto de PDF via pdfjs ──────────────────────────────────
 async function extractPDFText(file) {
   const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs');
   pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -53,130 +53,130 @@ async function extractPDFText(file) {
   return fullText;
 }
 
-// ─── Parser PDF Mercado Pago (novo formato) ────────────────────────────────
+// ─── Parser PDF Mercado Pago ──────────────────────────────────────────────
 function parseMercadoPagoPDF(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const transactions = [];
-
-  // Palavras que indicam movimentação interna (ignorar)
   const skipKeywords = [
-    'dinheiro retirado reserva',
-    'dinheiro retirado contas',
-    'dinheiro reservado reserva',
-    'dinheiro reservado contas',
-    'rendimentos',
+    'dinheiro retirado reserva','dinheiro retirado contas',
+    'dinheiro reservado reserva','dinheiro reservado contas','rendimentos',
   ];
-
   for (const line of lines) {
-    // Padrão: DD-MM-YYYY ... R$ -?valor ... R$ saldo
-    // Exemplos:
-    //   01-07-2026 Pix enviado Lennon Cintra Garcia 165894680299 R$ -11,00 R$ 1,12
-    //   06-07-2026 Pix recebido MATHEUS DE CASTRO EVANGELISTA 167467656774 R$ 690,00 R$ 706,90
-    const match = line.match(
-      /^(\d{2}-\d{2}-\d{4})\s+(.+?)\s+\d{9,}\s+R\$\s+(-?[\d.,]+)\s+R\$\s+[\d.,]+$/
-    );
+    const match = line.match(/^(\d{2}-\d{2}-\d{4})\s+(.+?)\s+\d{9,}\s+R\$\s+(-?[\d.,]+)\s+R\$\s+[\d.,]+$/);
     if (!match) continue;
-
     const [, rawDate, desc, rawAmount] = match;
     const [d, mo, y] = rawDate.split('-');
     const date   = `${y}-${mo}-${d}`;
     const amount = parseFloat(rawAmount.replace(/\./g, '').replace(',', '.'));
     if (isNaN(amount) || amount === 0) continue;
-
-    const descLower = desc.toLowerCase();
-    const skip = skipKeywords.some(kw => descLower.includes(kw));
-
-    transactions.push({
-      date,
-      description: desc.trim(),
-      amount: Math.abs(amount),
-      type: amount > 0 ? 'income' : 'expense',
-      category_id: '',
-      skip,
-    });
+    const skip = skipKeywords.some(kw => desc.toLowerCase().includes(kw));
+    transactions.push({ date, description: desc.trim(), amount: Math.abs(amount), type: amount > 0 ? 'income' : 'expense', category_id: '', skip });
   }
-
   if (!transactions.length) throw new Error('Nenhuma transação encontrada. Verifique se é um extrato Mercado Pago PDF.');
   return transactions;
 }
 
-// ─── Parser PDF Pluxee (cartão multibenefícios) ────────────────────────────
+// ─── Parser PDF Pluxee ────────────────────────────────────────────────────
 function parsePluxeePDF(text) {
   const MONTHS = {
     'janeiro':'01','fevereiro':'02','março':'03','abril':'04',
     'maio':'05','junho':'06','julho':'07','agosto':'08',
     'setembro':'09','outubro':'10','novembro':'11','dezembro':'12',
   };
-  const WEEKDAYS = ['segunda','terça','quarta','quinta','sexta','sábado','domingo'];
   const currentYear = new Date().getFullYear();
-
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   const transactions = [];
   let currentDate = null;
 
   for (const line of lines) {
-    // Detecta cabeçalho de dia: "sexta-feira, 10 julho" ou "segunda-feira, 1 junho"
-    const dayHeader = line.match(
-      /^(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)[-\s\w]*,?\s+(\d{1,2})\s+([\wÀ-ú]+)/i
-    );
+    const dayHeader = line.match(/^(?:segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo)[-\s\w]*,?\s+(\d{1,2})\s+([\wÀ-ú]+)/i);
     if (dayHeader) {
       const day   = dayHeader[1].padStart(2, '0');
-      const mName = dayHeader[2].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const month = MONTHS[dayHeader[2].toLowerCase()] ||
-                    Object.entries(MONTHS).find(([k]) =>
-                      k.normalize('NFD').replace(/[\u0300-\u036f]/g,'').startsWith(mName.slice(0,3))
-                    )?.[1];
+        Object.entries(MONTHS).find(([k]) => k.startsWith(dayHeader[2].toLowerCase().slice(0,3)))?.[1];
       if (month) currentDate = `${currentYear}-${month}-${day}`;
       continue;
     }
-
     if (!currentDate) continue;
-
-    // Crédito: "DISPONIBILIZACAO DE BENEFICIO ... (CREDITO) R$ X.XXX,XX"
     const creditMatch = line.match(/DISPONIBILIZACAO.*?R\$\s*([\d.,]+)/i);
     if (creditMatch) {
       const amount = parseFloat(creditMatch[1].replace(/\./g,'').replace(',','.'));
-      if (!isNaN(amount) && amount > 0) {
-        transactions.push({
-          date: currentDate,
-          description: 'Benefício Pluxee',
-          amount,
-          type: 'income',
-          category_id: '',
-          skip: false,
-        });
-      }
+      if (!isNaN(amount) && amount > 0) transactions.push({ date: currentDate, description: 'Benefício Pluxee', amount, type: 'income', category_id: '', skip: false });
       continue;
     }
-
-    // Ignora linhas de hora, tipo de compra e saldo
     if (/^\d{2}:\d{2}/.test(line)) continue;
-    if (/compra no|saldo (total|liberado|das|das carteiras)/i.test(line)) continue;
+    if (/compra no|saldo (total|liberado|das carteiras)/i.test(line)) continue;
     if (/atualizado|multibenef/i.test(line)) continue;
-
-    // Compra: "NOME DO ESTABELECIMENTO R$ X,XX"
     const purchaseMatch = line.match(/^(.+?)\s+R\$\s*([\d.,]+)$/);
     if (purchaseMatch) {
       const desc   = purchaseMatch[1].trim();
       const amount = parseFloat(purchaseMatch[2].replace(/\./g,'').replace(',','.'));
-      if (!isNaN(amount) && amount > 0 && desc.length > 2) {
-        transactions.push({
-          date: currentDate,
-          description: desc,
-          amount,
-          type: 'expense',
-          category_id: '',
-          skip: false,
-        });
-      }
+      if (!isNaN(amount) && amount > 0 && desc.length > 2)
+        transactions.push({ date: currentDate, description: desc, amount, type: 'expense', category_id: '', skip: false });
     }
   }
-
   if (!transactions.length) throw new Error('Nenhuma transação encontrada. Verifique se é um extrato Pluxee válido.');
   return transactions;
 }
 
-// ─── Parser PDF Itaú (existente) ──────────────────────────────────────────
+// ─── Parser PDF Sicoob ────────────────────────────────────────────────────
+function parseSicoobPDF(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // Extrai ano do período: "PERÍODO: 01/04/2026 - 30/04/2026"
+  const periodMatch = text.match(/PER[IÍ]ODO:\s*\d{2}\/\d{2}\/(\d{4})/i);
+  const year = periodMatch ? periodMatch[1] : String(new Date().getFullYear());
+
+  const skipKeywords = [
+    'saldo do dia','saldo anterior','saldo bloq','saldo disponível',
+    'est.déb.conv','deb.conv.dem.empres','deb.conv.dem',
+    'juros vencidos','tarifas vencidas',
+  ];
+
+  const transactions = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Linha de transação: DD/MM <descrição> <valor>C ou D
+    const txMatch = line.match(/^(\d{2})\/(\d{2})\s+(.+?)\s+([\d.,]+)([CD])$/);
+    if (!txMatch) { i++; continue; }
+
+    const [, day, month, histDesc, rawVal, cd] = txMatch;
+    const date   = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`;
+    const amount = parseFloat(rawVal.replace(/\./g,'').replace(',','.'));
+    const type   = cd === 'C' ? 'income' : 'expense';
+    if (isNaN(amount) || amount === 0) { i++; continue; }
+
+    const descLower = histDesc.toLowerCase();
+    const skip = skipKeywords.some(kw => descLower.includes(kw));
+
+    // Coleta nome do estabelecimento / destinatário da linha seguinte
+    const extraLines = [];
+    i++;
+    while (i < lines.length) {
+      const next = lines[i];
+      if (/^\d{2}\/\d{2}\s/.test(next)) break;
+      if (/^DOC\.:/.test(next)) { i++; break; }
+      if (/^(RESUMO|\(\+\)|\(-\)|\(=\)|SALDO|ENCARGOS|VENCIMENTO|TAXA|CUSTO|SAC|OUVIDORIA|Central|SOLICITE|ADQUIRA|000\s)/i.test(next)) break;
+      extraLines.push(next);
+      i++;
+    }
+
+    const extra = extraLines
+      .filter(l => !/^Pagamento Pix$|^Recebimento Pix$|^\*{3}|^\d{2}\.\d{3}\.\d{3}|^Ola,/i.test(l))
+      .slice(0, 1).join(' ');
+    const fullDesc = extra ? `${histDesc} - ${extra}` : histDesc;
+
+    transactions.push({ date, description: fullDesc.slice(0, 80), amount, type, category_id: '', skip });
+  }
+
+  if (!transactions.length) throw new Error('Nenhuma transação encontrada. Verifique se é um extrato Sicoob válido.');
+  return transactions;
+}
+
+// ─── Parser PDF Itaú ─────────────────────────────────────────────────────
 function parseItauPDF(text) {
   const lines = text.split('\n');
   const transactions = [];
@@ -196,10 +196,8 @@ function parseItauPDF(text) {
     if (!amount) continue;
     const skipDesc = ['REND PAGO','APLICACAO COFRINHOS','DINHEIRO RESERVADO'];
     transactions.push({
-      date, description: desc.trim(),
-      amount: Math.abs(amount),
-      type: amount > 0 ? 'income' : 'expense',
-      category_id: '',
+      date, description: desc.trim(), amount: Math.abs(amount),
+      type: amount > 0 ? 'income' : 'expense', category_id: '',
       skip: skipDesc.some(kw => desc.toUpperCase().includes(kw)),
     });
   }
@@ -207,122 +205,42 @@ function parseItauPDF(text) {
   return transactions;
 }
 
-
-// ─── Parser PDF Sicoob ────────────────────────────────────────────────────
-function parseSicoobPDF(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-
-  // Extrai ano do período: "PERÍODO: 01/04/2026 - 30/04/2026"
-  const periodMatch = text.match(/PER[IÍ]ODO:\s*\d{2}\/\d{2}\/(\d{4})/i);
-  const year = periodMatch ? periodMatch[1] : String(new Date().getFullYear());
-
-  // Palavras que indicam lançamentos internos (ignorar)
-  const skipKeywords = [
-    'saldo do dia','saldo anterior','saldo bloq','saldo disponível',
-    'est.déb.conv','deb.conv.dem.empres','deb.conv.dem',
-    'juros vencidos','tarifas vencidas','cheque especial',
-  ];
-
-  const transactions = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    // Linha de transação: DD/MM <descrição> <valor>C ou D
-    // Exemplos:
-    //   30/04 COMPRA NAC DEBIT 88,13D
-    //   22/04 PIX RECEB.OUTRA IF 800,00C
-    //   22/04 DÉB.PGTO.BOLETO INT 305,03D
-    const txMatch = line.match(/^(\d{2})\/(\d{2})\s+(.+?)\s+([\d.,]+)([CD])$/);
-    if (!txMatch) { i++; continue; }
-
-    const [, day, month, histDesc, rawVal, cd] = txMatch;
-    const date   = `${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`;
-    const amount = parseFloat(rawVal.replace(/\./g,'').replace(',','.'));
-    const type   = cd === 'C' ? 'income' : 'expense';
-
-    if (isNaN(amount) || amount === 0) { i++; continue; }
-
-    const descLower = histDesc.toLowerCase();
-    const skip = skipKeywords.some(kw => descLower.includes(kw));
-
-    // Coleta linhas extras de descrição (nome do estabelecimento, destinatário…)
-    const extraLines = [];
-    i++;
-    while (i < lines.length) {
-      const next = lines[i];
-      if (/^\d{2}\/\d{2}\s/.test(next)) break;        // próxima transação
-      if (/^DOC\.:/.test(next)) { i++; break; }         // fim do bloco
-      if (/^(RESUMO|\(\+\)|\(\-\)|\(=\)|SALDO|ENCARGOS|VENCIMENTO|TAXA|CUSTO|SAC|OUVIDORIA|Central|SOLICITE|ADQUIRA|000 )/i.test(next)) break;
-      extraLines.push(next);
-      i++;
-    }
-
-    // Monta descrição final: tipo de operação + estabelecimento/destinatário
-    const extra = extraLines
-      .filter(l => !/^Pagamento Pix$|^Recebimento Pix$|^\*{3}|^\d{2}\.\d{3}\.\d{3}|^Ola,/i.test(l))
-      .slice(0,1).join(' ');
-    const fullDesc = extra ? `${histDesc} - ${extra}` : histDesc;
-
-    transactions.push({
-      date,
-      description: fullDesc.slice(0, 80),
-      amount,
-      type,
-      category_id: '',
-      skip,
-    });
-  }
-
-  if (!transactions.length) throw new Error('Nenhuma transação encontrada. Verifique se é um extrato Sicoob válido.');
-  return transactions;
-}
-
 // ─── Config dos bancos ────────────────────────────────────────────────────
 const BANKS = [
   {
-    id: 'mp-csv', label: 'Mercado Pago', icon: '💳', format: 'CSV',
-    accept: '.csv,text/csv',
+    id: 'mp-csv', label: 'Mercado Pago', icon: '💳', format: 'CSV', accept: '.csv,text/csv',
     steps: ['Abra o app do Mercado Pago','Vá em Atividade → Extrato','Toque em "Exportar" → CSV','Selecione o período e baixe'],
   },
   {
-    id: 'mp-pdf', label: 'Mercado Pago', icon: '💳', format: 'PDF',
-    accept: '.pdf,application/pdf',
-    badge: 'Novo',
+    id: 'mp-pdf', label: 'Mercado Pago', icon: '💳', format: 'PDF', accept: '.pdf,application/pdf', badge: 'Novo',
     steps: ['Acesse mercadopago.com.br no navegador','Vá em Conta → Extrato de conta','Clique em "Baixar PDF"','Selecione o período'],
   },
   {
-    id: 'pluxee', label: 'Pluxee', icon: '🎫', format: 'PDF',
-    accept: '.pdf,application/pdf',
-    badge: 'Novo',
+    id: 'pluxee', label: 'Pluxee', icon: '🎫', format: 'PDF', accept: '.pdf,application/pdf', badge: 'Novo',
     steps: ['Acesse o app ou site da Pluxee','Vá em Extrato → Multibenefícios','Exporte o extrato em PDF','Selecione o período'],
   },
   {
-    id: 'sicoob', label: 'Sicoob', icon: '🟢', format: 'PDF',
-    accept: '.pdf,application/pdf',
-    badge: 'Novo',
+    id: 'sicoob', label: 'Sicoob', icon: '🟢', format: 'PDF', accept: '.pdf,application/pdf', badge: 'Novo',
     steps: ['Acesse o internet banking do Sicoob','Vá em Extrato → Conta Corrente','Selecione o período desejado','Clique em "Emitir" e salve o PDF'],
   },
   {
-    id: 'itau', label: 'Itaú', icon: '🏦', format: 'PDF',
-    accept: '.pdf,application/pdf',
+    id: 'itau', label: 'Itaú', icon: '🏦', format: 'PDF', accept: '.pdf,application/pdf',
     steps: ['Acesse o app ou internet banking Itaú','Vá em Conta corrente → Extrato','Selecione o período desejado','Clique em "Exportar" → PDF'],
   },
 ];
 
-const labelStyle = { display:'block', fontSize:12, color:'var(--text2)', fontWeight:500, marginBottom:6, letterSpacing:'0.02em' };
+const lbl = { display:'block', fontSize:12, color:'var(--text2)', fontWeight:500, marginBottom:6, letterSpacing:'0.02em' };
 
 // ─── Componente principal ─────────────────────────────────────────────────
 export default function ImportModal({ onClose, onSave }) {
-  const [step,        setStep]        = useState('upload');
-  const [bankType,    setBankType]    = useState(null);
-  const [transactions,setTransactions]= useState([]);
-  const [categories,  setCategories]  = useState([]);
-  const [error,       setError]       = useState('');
-  const [importing,   setImporting]   = useState(false);
-  const [progress,    setProgress]    = useState(0);
-  const [loadingFile, setLoadingFile] = useState(false);
+  const [step,         setStep]         = useState('upload');
+  const [bankType,     setBankType]     = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [categories,   setCategories]   = useState([]);
+  const [error,        setError]        = useState('');
+  const [importing,    setImporting]    = useState(false);
+  const [progress,     setProgress]     = useState(0);
+  const [loadingFile,  setLoadingFile]  = useState(false);
   const fileRef = useRef();
 
   async function handleFile(e) {
@@ -331,17 +249,33 @@ export default function ImportModal({ onClose, onSave }) {
     setError(''); setLoadingFile(true);
     try {
       let parsed;
-      if (bankType === 'mp-csv') {
-        parsed = parseMercadoPagoCSV(await file.text());
-      } else if (bankType === 'mp-pdf') {
-        const text = await extractPDFText(file);
-        parsed = parseMercadoPagoPDF(text);
-      } else if (bankType === 'pluxee') {
-        const text = await extractPDFText(file);
-        parsed = parsePluxeePDF(text);
-      } else {
-        const text = await extractPDFText(file);
-        parsed = parseItauPDF(text);
+      // Switch explícito — sem fallback acidental
+      switch (bankType) {
+        case 'mp-csv':
+          parsed = parseMercadoPagoCSV(await file.text());
+          break;
+        case 'mp-pdf': {
+          const text = await extractPDFText(file);
+          parsed = parseMercadoPagoPDF(text);
+          break;
+        }
+        case 'pluxee': {
+          const text = await extractPDFText(file);
+          parsed = parsePluxeePDF(text);
+          break;
+        }
+        case 'sicoob': {
+          const text = await extractPDFText(file);
+          parsed = parseSicoobPDF(text);
+          break;
+        }
+        case 'itau': {
+          const text = await extractPDFText(file);
+          parsed = parseItauPDF(text);
+          break;
+        }
+        default:
+          throw new Error('Selecione um banco antes de importar.');
       }
       const { data: cats } = await api.get('/api/categories');
       setCategories(cats);
@@ -379,17 +313,15 @@ export default function ImportModal({ onClose, onSave }) {
     onSave();
   }
 
-  const toImport    = transactions.filter(tx => !tx.skip);
-  const fmt         = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
-  const fmtDate     = d => new Date(d+'T00:00:00').toLocaleDateString('pt-BR');
+  const toImport     = transactions.filter(tx => !tx.skip);
+  const fmt          = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
+  const fmtDate      = d => new Date(d+'T00:00:00').toLocaleDateString('pt-BR');
   const selectedBank = BANKS.find(b => b.id === bankType);
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.65)',backdropFilter:'blur(4px)',display:'flex',alignItems:step==='preview'?'flex-start':'center',justifyContent:'center',zIndex:50,padding:16,overflowY:'auto'}} onClick={onClose}>
       <div style={{background:'var(--bg2)',border:'1px solid var(--border-md)',borderRadius:18,width:'100%',maxWidth:step==='preview'?700:500,padding:'8px 24px 32px',boxShadow:'var(--shadow)',marginTop:step==='preview'?0:'auto',marginBottom:step==='preview'?0:'auto'}} className="fade-up" onClick={e=>e.stopPropagation()}>
-
         <div style={{width:36,height:4,borderRadius:2,background:'var(--bg3)',margin:'10px auto 20px'}}/>
-
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:22}}>
           <div>
             <h2 style={{fontSize:16,fontWeight:600,letterSpacing:'-0.02em'}}>
@@ -403,14 +335,14 @@ export default function ImportModal({ onClose, onSave }) {
         {/* ── UPLOAD ── */}
         {step==='upload'&&(
           <div>
-            <p style={labelStyle}>SELECIONE SEU BANCO / FORMATO</p>
+            <label style={lbl}>SELECIONE SEU BANCO / FORMATO</label>
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:22}}>
               {BANKS.map(b=>(
-                <button key={b.id} onClick={()=>setBankType(b.id)} style={{padding:'14px 12px',borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'var(--font)',transition:'all 0.15s',border:`1.5px solid ${bankType===b.id?'var(--indigo)':'var(--border)'}`,background:bankType===b.id?'var(--indigo-dim)':'var(--bg3)',position:'relative'}}>
-                  {b.badge&&<span style={{position:'absolute',top:8,right:8,fontSize:10,fontWeight:700,color:'var(--green)',background:'var(--green-dim)',borderRadius:4,padding:'2px 5px'}}>{b.badge}</span>}
-                  <div style={{fontSize:22,marginBottom:6}}>{b.icon}</div>
-                  <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>{b.label}</div>
-                  <div style={{fontSize:11,color:'var(--text3)',marginTop:2}}>Formato: {b.format}</div>
+                <button key={b.id} onClick={()=>setBankType(b.id)} style={{padding:'14px 10px',borderRadius:12,cursor:'pointer',textAlign:'left',fontFamily:'var(--font)',transition:'all 0.15s',border:`1.5px solid ${bankType===b.id?'var(--indigo)':'var(--border)'}`,background:bankType===b.id?'var(--indigo-dim)':'var(--bg3)',position:'relative'}}>
+                  {b.badge&&<span style={{position:'absolute',top:6,right:6,fontSize:10,fontWeight:700,color:'var(--green)',background:'var(--green-dim)',borderRadius:4,padding:'1px 5px'}}>{b.badge}</span>}
+                  <div style={{fontSize:20,marginBottom:5}}>{b.icon}</div>
+                  <div style={{fontSize:12,fontWeight:600,color:'var(--text)'}}>{b.label}</div>
+                  <div style={{fontSize:10,color:'var(--text3)',marginTop:1}}>{b.format}</div>
                 </button>
               ))}
             </div>
@@ -426,23 +358,20 @@ export default function ImportModal({ onClose, onSave }) {
                     </div>
                   ))}
                 </div>
-
                 <div onClick={()=>!loadingFile&&fileRef.current.click()}
                   style={{border:'2px dashed var(--border-md)',borderRadius:14,padding:'28px 20px',textAlign:'center',cursor:loadingFile?'wait':'pointer',transition:'all 0.2s'}}
                   onMouseOver={e=>{if(!loadingFile){e.currentTarget.style.borderColor='var(--indigo)';e.currentTarget.style.background='var(--indigo-dim)';}}}
                   onMouseOut={e=>{e.currentTarget.style.borderColor='var(--border-md)';e.currentTarget.style.background='transparent';}}>
-                  {loadingFile?(
-                    <><div style={{fontSize:26,marginBottom:8}}>⏳</div><p style={{fontSize:14,fontWeight:500,color:'var(--text)'}}>Lendo o arquivo...</p></>
-                  ):(
-                    <><div style={{fontSize:26,marginBottom:8}}>{selectedBank.format==='PDF'?'📄':'📂'}</div>
-                    <p style={{fontSize:14,fontWeight:500,color:'var(--text)'}}>Clique para selecionar o {selectedBank.format}</p>
-                    <p style={{fontSize:12,color:'var(--text3)',marginTop:4}}>Extrato {selectedBank.label} em {selectedBank.format}</p></>
-                  )}
+                  {loadingFile
+                    ?<><div style={{fontSize:26,marginBottom:8}}>⏳</div><p style={{fontSize:14,fontWeight:500,color:'var(--text)'}}>Lendo o arquivo...</p></>
+                    :<><div style={{fontSize:26,marginBottom:8}}>{selectedBank.format==='PDF'?'📄':'📂'}</div>
+                      <p style={{fontSize:14,fontWeight:500,color:'var(--text)'}}>Clique para selecionar o {selectedBank.format}</p>
+                      <p style={{fontSize:12,color:'var(--text3)',marginTop:4}}>Extrato {selectedBank.label} em {selectedBank.format}</p></>
+                  }
                   <input ref={fileRef} type="file" accept={selectedBank.accept} onChange={handleFile} style={{display:'none'}}/>
                 </div>
               </>
             )}
-
             {error&&<p style={{fontSize:13,color:'var(--red)',background:'var(--red-dim)',borderRadius:8,padding:'10px 12px',marginTop:14}}>{error}</p>}
           </div>
         )}
@@ -454,7 +383,7 @@ export default function ImportModal({ onClose, onSave }) {
               {[
                 {label:'Receitas',  value:fmt(toImport.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0)),  color:'var(--green)'},
                 {label:'Despesas',  value:fmt(toImport.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0)), color:'var(--red)'},
-                {label:'Ignoradas', value:transactions.filter(t=>t.skip).length, color:'var(--text3)'},
+                {label:'Ignoradas', value:transactions.filter(t=>t.skip).length,                                   color:'var(--text3)'},
               ].map(c=>(
                 <div key={c.label} style={{background:'var(--bg3)',borderRadius:10,padding:'12px 14px',textAlign:'center'}}>
                   <p style={{fontSize:11,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}}>{c.label}</p>
@@ -469,7 +398,6 @@ export default function ImportModal({ onClose, onSave }) {
                   <span key={i} style={{fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em'}}>{h}</span>
                 ))}
               </div>
-
               {transactions.map((tx,i)=>(
                 <div key={i} style={{display:'grid',gridTemplateColumns:'28px 76px 1fr 100px 88px 28px',gap:6,padding:'8px 12px',alignItems:'center',borderBottom:'1px solid var(--border)',opacity:tx.skip?0.3:1,background:tx.skip?'transparent':'var(--bg2)',transition:'opacity 0.2s'}}>
                   <input type="checkbox" checked={!tx.skip} onChange={()=>updateTx(i,'skip',!tx.skip)} style={{width:15,height:15,accentColor:'var(--indigo)',cursor:'pointer'}}/>
