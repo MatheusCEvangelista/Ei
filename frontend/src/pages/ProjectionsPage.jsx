@@ -68,7 +68,7 @@ export default function ProjectionsPage() {
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:24,flexWrap:'wrap',gap:12}}>
           <div>
             <h1 style={{fontSize:20,fontWeight:600,letterSpacing:'-0.03em'}}>Projeção financeira</h1>
-            <p style={{color:'var(--text3)',fontSize:13,marginTop:4}}>Estimativa baseada na sua média dos últimos 3 meses</p>
+            <p style={{color:'var(--text3)',fontSize:13,marginTop:4}}>Estimativa baseada em {data ? `${data.months_analyzed} mês${data.months_analyzed !== 1 ? 'es' : ''} de dados` : 'sua média histórica'}</p>
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {/* Período */}
