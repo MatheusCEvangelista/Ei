@@ -23,6 +23,7 @@ export default function Navbar() {
     { to:'/calculators', label:'Calculadoras'  },
     { to:'/budgets',     label:'Tetos'         },
     { to:'/projections',  label:'Projeção'      },
+    { to:'/debts',        label:'Dívidas'       },
   ];
 
   return (
