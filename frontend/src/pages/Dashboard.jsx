@@ -12,17 +12,8 @@ import BudgetWidget      from '../components/BudgetWidget';
 import Navbar            from '../components/Navbar';
 import { useExportCSV }  from '../hooks/useExportCSV';
 import TransferModal from '../components/TransferModal';
-
-// estado:
-const [showTransfer, setShowTransfer] = useState(false);
-
-// botão (ao lado do "Importar"):
-<button onClick={()=>setShowTransfer(true)}>🔄 Transferir</button>
-
-// modal:
-{showTransfer && <TransferModal onClose={()=>setShowTransfer(false)} onSave={()=>{setShowTransfer(false);loadTransactions();loadSummary();}}/>}
 const card = { background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'20px 18px 16px' };
-
+const [showTransfer, setShowTransfer] = useState(false);
 export default function Dashboard() {
   const today = new Date();
   const [month, setMonth] = useState(today.getMonth()+1);
@@ -103,9 +94,11 @@ export default function Dashboard() {
       </main>
 
       <button onClick={()=>setShowModal(true)} className="fab sm:hidden" style={{position:'fixed',bottom:24,right:20,zIndex:30,width:54,height:54,borderRadius:'50%',border:'none',background:'linear-gradient(135deg,var(--indigo),#a78bfa)',color:'#fff',fontSize:26,cursor:'pointer',boxShadow:'0 4px 20px rgba(124,127,247,0.45)',display:'flex',alignItems:'center',justifyContent:'center'}}>＋</button>
-
+    
       {showImport && <ImportModal onClose={()=>setShowImport(false)} onSave={()=>{setShowImport(false);loadData();}}/>}
       {showModal  && <TransactionModal transaction={editingTx} onClose={handleClose} onSave={()=>{handleClose();loadData();}}/>}
+        <button onClick={()=>setShowTransfer(true)}>🔄 Transferir</button>
+        {showTransfer && <TransferModal onClose={()=>setShowTransfer(false)} onSave={()=>{setShowTransfer(false);loadTransactions();loadSummary();}}/>}
     </div>
   );
 }
