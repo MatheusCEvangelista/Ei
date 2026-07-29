@@ -24,6 +24,7 @@ export default function Navbar() {
     { to:'/budgets',     label:'Tetos'         },
     { to:'/projections',  label:'Projeção'      },
     { to:'/debts',        label:'Dívidas'       },
+    { to:'/credit-cards',  label:'Cartões'       },
   ];
 
   return (
