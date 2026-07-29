@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 const authMiddleware   = require('../middleware/auth');
-const { v4: uuidv4 }  = require('uuid');
+const { v4: uuidv4 }  = require('crypto');
 
 router.use(authMiddleware);
 
