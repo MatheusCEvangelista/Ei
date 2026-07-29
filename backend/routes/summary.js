@@ -18,7 +18,9 @@ router.get('/', async (req, res) => {
 
   let query = db(req.token).from('transactions')
     .select('amount,type,categories(name,color)')
-    .eq('user_id', req.user.id).gte('date', start).lte('date', end);
+    .eq('user_id', req.user.id)
+    .gte('date', start).lte('date', end)
+    .is('transfer_id', null); // Exclui transferências
   if (account_id) query = query.eq('account_id', account_id);
 
   const { data, error } = await query;
@@ -48,7 +50,10 @@ router.get('/evolution', async (req, res) => {
     const start = `${year}-${String(month).padStart(2,'0')}-01`;
     const end   = new Date(year, month, 0).toISOString().split('T')[0];
     const { data } = await db(req.token).from('transactions')
-      .select('amount,type').eq('user_id', req.user.id).gte('date',start).lte('date',end);
+      .select('amount,type')
+      .eq('user_id', req.user.id)
+      .gte('date',start).lte('date',end)
+      .is('transfer_id', null); // Exclui transferências
     const income  = (data||[]).filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
     const expense = (data||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
     return { label: new Date(year,month-1).toLocaleString('pt-BR',{month:'short'}), income, expense };
@@ -59,18 +64,19 @@ router.get('/evolution', async (req, res) => {
 
 router.get('/analysis', async (req, res) => {
   const { month, year } = req.query;
-  const start = `${year}-${String(month).padStart(2,'0')}-01`;
-  const end   = new Date(year, month, 0).toISOString().split('T')[0];
+  const start    = `${year}-${String(month).padStart(2,'0')}-01`;
+  const end      = new Date(year, month, 0).toISOString().split('T')[0];
   const prevMonth = Number(month)===1 ? 12 : Number(month)-1;
   const prevYear  = Number(month)===1 ? Number(year)-1 : Number(year);
   const prevStart = `${prevYear}-${String(prevMonth).padStart(2,'0')}-01`;
   const prevEnd   = new Date(prevYear, prevMonth, 0).toISOString().split('T')[0];
 
+  const supabase = db(req.token);
   const [{ data: curr }, { data: prev }] = await Promise.all([
-    db(req.token).from('transactions').select('amount,type,categories(name)')
-      .eq('user_id', req.user.id).gte('date',start).lte('date',end),
-    db(req.token).from('transactions').select('amount,type')
-      .eq('user_id', req.user.id).gte('date',prevStart).lte('date',prevEnd),
+    supabase.from('transactions').select('amount,type,categories(name)')
+      .eq('user_id', req.user.id).gte('date',start).lte('date',end).is('transfer_id',null),
+    supabase.from('transactions').select('amount,type')
+      .eq('user_id', req.user.id).gte('date',prevStart).lte('date',prevEnd).is('transfer_id',null),
   ]);
 
   const income      = (curr||[]).filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);

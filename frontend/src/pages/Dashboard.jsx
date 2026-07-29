@@ -11,7 +11,16 @@ import MonthlyAnalysis   from '../components/MonthlyAnalysis';
 import BudgetWidget      from '../components/BudgetWidget';
 import Navbar            from '../components/Navbar';
 import { useExportCSV }  from '../hooks/useExportCSV';
+import TransferModal from '../components/TransferModal';
 
+// estado:
+const [showTransfer, setShowTransfer] = useState(false);
+
+// botão (ao lado do "Importar"):
+<button onClick={()=>setShowTransfer(true)}>🔄 Transferir</button>
+
+// modal:
+{showTransfer && <TransferModal onClose={()=>setShowTransfer(false)} onSave={()=>{setShowTransfer(false);loadTransactions();loadSummary();}}/>}
 const card = { background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'20px 18px 16px' };
 
 export default function Dashboard() {
