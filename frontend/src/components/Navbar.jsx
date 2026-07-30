@@ -71,7 +71,7 @@ export default function Navbar() {
           </div>
 
           {/* Links primários — desktop */}
-          <nav style={{display:'flex',alignItems:'center',gap:2,flex:1,overflow:'hidden'}} className="hide-mobile">
+          <nav style={{display:'flex',alignItems:'center',gap:2,flex:1,overflow:'visible',minWidth:0}} className="hide-mobile">
             {PRIMARY.map(l=>(
               <NavLink key={l.to} to={l.to} end={l.end} style={({isActive})=>linkStyle(isActive)}>
                 {l.label}
