@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 
 const fmt  = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
 const inpS = { padding:'10px 12px', background:'var(--bg3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', width:'100%' };
@@ -25,17 +25,23 @@ export default function TransactionList({ transactions, loading, onEdit, onDelet
 
   if (loading) return (
     <div style={{display:'flex',flexDirection:'column',gap:8}}>
-      {[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:56}}/>)}
+      {[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:60,borderRadius:10}}/>)}
     </div>
   );
 
   return (
     <div>
+      <style>{`
+        .tx-actions { opacity: 0; transition: opacity 0.15s; }
+        .tx-row:hover .tx-actions { opacity: 1; }
+        @media (max-width: 640px) { .tx-actions { opacity: 1 !important; } }
+      `}</style>
+
       {/* Filtros */}
       <div className="filters-row" style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}}>
         <div style={{flex:1,minWidth:140,position:'relative'}}>
-          <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text3)'}}>⌕</span>
-          <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar..." style={{...inpS,paddingLeft:28}}/>
+          <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text3)',fontSize:14}}>⌕</span>
+          <input type="text" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar..." style={{...inpS,paddingLeft:30}}/>
         </div>
         <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={inpS}>
           <option value="all">Todos os tipos</option>
@@ -62,7 +68,9 @@ export default function TransactionList({ transactions, loading, onEdit, onDelet
         <p style={{textAlign:'center',color:'var(--text3)',fontSize:13,padding:'32px 0'}}>Nenhuma transação encontrada</p>
       ) : (
         <div style={{display:'flex',flexDirection:'column',gap:2}}>
-          {filtered.map((tx,i) => <TxRow key={tx.id} tx={tx} onEdit={onEdit} onDelete={onDelete} i={i}/>)}
+          {filtered.map((tx,i) => (
+            <TxRow key={tx.id} tx={tx} onEdit={onEdit} onDelete={onDelete} i={i}/>
+          ))}
         </div>
       )}
     </div>
@@ -70,104 +78,75 @@ export default function TransactionList({ transactions, loading, onEdit, onDelet
 }
 
 function TxRow({ tx, onEdit, onDelete, i }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef  = useRef();
   const isIncome = tx.type === 'income';
-
-  // Fecha o menu ao clicar/tocar fora — sem overlay fixo
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handleOutside(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
-    }
-    // Pequeno delay para não fechar no mesmo evento que abriu
-    const timer = setTimeout(() => {
-      document.addEventListener('pointerdown', handleOutside);
-    }, 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('pointerdown', handleOutside);
-    };
-  }, [menuOpen]);
 
   return (
     <div
-      style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'12px 10px',borderRadius:10,transition:'background 0.15s',animationDelay:`${i*30}ms`}}
-      className="fade-up"
-      onMouseEnter={e => e.currentTarget.style.background = 'var(--bg3)'}
-      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+      className="tx-row"
+      style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 10px',borderRadius:10,transition:'background 0.15s',animationDelay:`${i*20}ms`,gap:8}}
+      className="tx-row fade-up"
+      onMouseEnter={e=>e.currentTarget.style.background='var(--bg3)'}
+      onMouseLeave={e=>e.currentTarget.style.background='transparent'}
     >
-      {/* Ícone + descrição */}
-      <div style={{display:'flex',alignItems:'center',gap:12,minWidth:0}}>
-        <div style={{width:36,height:36,borderRadius:10,flexShrink:0,
+      {/* Ícone + info */}
+      <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
+        <div style={{
+          width:34,height:34,borderRadius:9,flexShrink:0,
           background:isIncome?'var(--green-dim)':'var(--red-dim)',
           border:`1px solid ${isIncome?'rgba(45,212,160,0.2)':'rgba(240,94,110,0.2)'}`,
           display:'flex',alignItems:'center',justifyContent:'center',
-          color:isIncome?'var(--green)':'var(--red)',fontSize:14,fontWeight:700}}>
+          color:isIncome?'var(--green)':'var(--red)',fontSize:13,fontWeight:700,
+        }}>
           {isIncome?'↑':'↓'}
         </div>
         <div style={{minWidth:0}}>
-          <p className="text-truncate" style={{fontSize:13,fontWeight:500,color:'var(--text)'}}>
+          <p style={{fontSize:13,fontWeight:500,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
             {tx.description || tx.categories?.name || '—'}
           </p>
-          <div style={{display:'flex',alignItems:'center',gap:6,marginTop:2}}>
+          <div style={{display:'flex',alignItems:'center',gap:5,marginTop:2,flexWrap:'wrap'}}>
             {tx.categories && (
-              <span style={{fontSize:11,color:'var(--text3)',display:'flex',alignItems:'center',gap:4}}>
-                <span style={{width:6,height:6,borderRadius:'50%',background:tx.categories.color,display:'inline-block',flexShrink:0}}/>
+              <span style={{fontSize:11,color:'var(--text3)',display:'flex',alignItems:'center',gap:3}}>
+                <span style={{width:5,height:5,borderRadius:'50%',background:tx.categories.color,display:'inline-block',flexShrink:0}}/>
                 {tx.categories.name}
               </span>
             )}
             <span style={{fontSize:11,color:'var(--text3)'}}>
-              · {new Date(tx.date+'T00:00:00').toLocaleDateString('pt-BR')}
+              {tx.categories?'·':''} {new Date(tx.date+'T00:00:00').toLocaleDateString('pt-BR')}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Valor + botão ⋯ */}
-      <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0,marginLeft:8}}>
-        <span style={{fontFamily:'var(--mono)',fontSize:13,fontWeight:500,color:isIncome?'var(--green)':'var(--red)'}}>
+      {/* Valor + botões */}
+      <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+        <span style={{fontFamily:'var(--mono)',fontSize:13,fontWeight:600,color:isIncome?'var(--green)':'var(--red)',whiteSpace:'nowrap'}}>
           {isIncome?'+':'-'}{fmt(tx.amount)}
         </span>
 
-        {/* Menu de ações */}
-        <div ref={menuRef} style={{position:'relative'}}>
+        {/* Botões inline — sempre visíveis no mobile, aparecem no hover no desktop */}
+        <div className="tx-actions" style={{display:'flex',gap:4}}>
           <button
-            onClick={() => setMenuOpen(v => !v)}
-            style={{width:30,height:30,borderRadius:7,background:menuOpen?'var(--indigo-dim)':'var(--bg3)',border:`1px solid ${menuOpen?'var(--indigo)':'var(--border)'}`,color:menuOpen?'var(--indigo)':'var(--text2)',fontSize:16,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s'}}
-          >⋯</button>
-
-          {menuOpen && (
-            <div style={{
-              position:'absolute', right:0, top:36, zIndex:100,
-              background:'var(--bg2)', border:'1px solid var(--border-md)',
-              borderRadius:11, padding:6, display:'flex', flexDirection:'column', gap:4,
-              boxShadow:'var(--shadow)', minWidth:130,
-            }}>
-              <button
-                onPointerDown={e => {
-                  e.stopPropagation();
-                  onEdit(tx);
-                  setMenuOpen(false);
-                }}
-                style={{fontSize:13,color:'var(--indigo)',background:'var(--indigo-dim)',border:'none',borderRadius:7,padding:'9px 14px',cursor:'pointer',fontFamily:'var(--font)',textAlign:'left',display:'flex',alignItems:'center',gap:8}}
-              >
-                ✏️ Editar
-              </button>
-              <button
-                onPointerDown={e => {
-                  e.stopPropagation();
-                  onDelete(tx.id);
-                  setMenuOpen(false);
-                }}
-                style={{fontSize:13,color:'var(--red)',background:'var(--red-dim)',border:'none',borderRadius:7,padding:'9px 14px',cursor:'pointer',fontFamily:'var(--font)',textAlign:'left',display:'flex',alignItems:'center',gap:8}}
-              >
-                🗑 Excluir
-              </button>
-            </div>
-          )}
+            onPointerUp={() => onEdit(tx)}
+            style={{
+              padding:'5px 10px',borderRadius:7,border:'none',cursor:'pointer',
+              background:'var(--indigo-dim)',color:'var(--indigo)',
+              fontSize:12,fontWeight:500,fontFamily:'var(--font)',
+              whiteSpace:'nowrap',lineHeight:1.2,
+            }}
+          >
+            Editar
+          </button>
+          <button
+            onPointerUp={() => onDelete(tx.id)}
+            style={{
+              padding:'5px 10px',borderRadius:7,border:'none',cursor:'pointer',
+              background:'var(--red-dim)',color:'var(--red)',
+              fontSize:12,fontWeight:500,fontFamily:'var(--font)',
+              whiteSpace:'nowrap',lineHeight:1.2,
+            }}
+          >
+            Excluir
+          </button>
         </div>
       </div>
     </div>
