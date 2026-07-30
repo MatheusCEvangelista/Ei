@@ -14,6 +14,7 @@ import NotificationSettingsPage  from './pages/NotificationSettingsPage';
 import ProjectionsPage           from './pages/ProjectionsPage';
 import DebtsPage                 from './pages/DebtsPage';
 import CreditCardsPage           from './pages/CreditCardsPage';
+import ReportPage                from './pages/ReportPage';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/projections"           element={<PrivateRoute><ProjectionsPage/></PrivateRoute>} />
           <Route path="/debts"                 element={<PrivateRoute><DebtsPage/></PrivateRoute>} />
           <Route path="/credit-cards"           element={<PrivateRoute><CreditCardsPage/></PrivateRoute>} />
+          <Route path="/report"                  element={<PrivateRoute><ReportPage/></PrivateRoute>} />
           <Route path="*"                     element={<Navigate to="/" replace />} />
         </Routes>
         <PWAInstallPrompt/>
