@@ -11,8 +11,14 @@ function db(token) {
   });
 }
 
-function daysDiff(dateStr) {
-  return Math.ceil((new Date(dateStr+'T00:00:00') - new Date()) / (1000*60*60*24));
+// Wrapper para queries opcionais que podem não existir
+async function safeQuery(queryPromise) {
+  try {
+    const { data } = await queryPromise;
+    return data || [];
+  } catch (_) {
+    return [];
+  }
 }
 
 router.get('/', async (req, res) => {
@@ -25,73 +31,59 @@ router.get('/', async (req, res) => {
 
   const insights = [];
 
-  // Busca paralela de todos os dados necessários
-  const [
-    { data: txs },
-    { data: budgets },
-    { data: debts },
-    { data: cards },
-    { data: goals },
-    { data: recurrings },
-  ] = await Promise.all([
-    supabase.from('transactions').select('amount,type,category_id,categories(name,color),transfer_id')
-      .eq('user_id', req.user.id).gte('date', start).lte('date', end),
-    supabase.from('budgets').select('amount,category_id,categories(name)')
-      .eq('user_id', req.user.id),
-    supabase.from('debts').select('id,name,paid_installments,installments,installment_value,due_day,start_date,done')
-      .eq('user_id', req.user.id),
-    supabase.from('credit_cards').select('id,name,closing_day,due_day,color')
-      .eq('user_id', req.user.id).catch(()=>({data:[]})),
-    supabase.from('goals').select('id,name,current_amount,target_amount')
-      .eq('user_id', req.user.id),
-    supabase.from('recurring_transactions').select('id,description,last_created_at,frequency,active')
-      .eq('user_id', req.user.id).eq('active', true),
+  // Busca paralela com safeQuery para tabelas opcionais
+  const [txs, budgets, debts, cards, goals, recurrings] = await Promise.all([
+    safeQuery(supabase.from('transactions').select('amount,type,category_id,categories(name,color),transfer_id').eq('user_id', req.user.id).gte('date', start).lte('date', end)),
+    safeQuery(supabase.from('budgets').select('amount,category_id,categories(name)').eq('user_id', req.user.id)),
+    safeQuery(supabase.from('debts').select('id,name,paid_installments,installments,installment_value,due_day,start_date').eq('user_id', req.user.id).eq('done', false)),
+    safeQuery(supabase.from('credit_cards').select('id,name,closing_day,due_day').eq('user_id', req.user.id)),
+    safeQuery(supabase.from('goals').select('id,name,current_amount,target_amount').eq('user_id', req.user.id)),
+    safeQuery(supabase.from('recurring_transactions').select('id,description,last_created_at,frequency').eq('user_id', req.user.id).eq('active', true)),
   ]);
 
-  const realTxs   = (txs||[]).filter(t=>!t.transfer_id);
-  const income    = realTxs.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
-  const expense   = realTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
+  const realTxs = txs.filter(t => !t.transfer_id);
+  const income  = realTxs.filter(t => t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
+  const expense = realTxs.filter(t => t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
 
-  // ── Gastos por categoria no mês ─────────────────────────────────────
+  // Gastos por categoria no mês
   const spentByCat = {};
-  realTxs.filter(t=>t.type==='expense').forEach(t=>{
+  realTxs.filter(t=>t.type==='expense').forEach(t => {
     if (!t.category_id) return;
     if (!spentByCat[t.category_id]) spentByCat[t.category_id] = { spent:0, name:t.categories?.name||'Categoria' };
     spentByCat[t.category_id].spent += Number(t.amount);
   });
 
   // ── Regra 1 & 2: Tetos ──────────────────────────────────────────────
-  for (const budget of (budgets||[])) {
-    const cat   = spentByCat[budget.category_id];
+  for (const budget of budgets) {
+    const cat = spentByCat[budget.category_id];
     if (!cat) continue;
-    const pct   = Math.round(cat.spent / budget.amount * 100);
-    const name  = budget.categories?.name || cat.name;
+    const pct  = Math.round(cat.spent / budget.amount * 100);
+    const name = budget.categories?.name || cat.name;
 
     if (pct >= 100) {
       insights.push({
         priority: 9, type:'critical', icon:'🔴',
         title: `Teto estourado: ${name}`,
-        body:  `Você gastou R$${cat.spent.toFixed(2)} de R$${Number(budget.amount).toFixed(2)} neste mês (${pct}%). Considere revisar seus gastos nesta categoria.`,
+        body:  `Você gastou R$${cat.spent.toFixed(2)} de R$${Number(budget.amount).toFixed(2)} neste mês (${pct}%).`,
         action: { label:'Ver tetos', url:'/budgets' },
       });
     } else if (pct >= 80) {
       insights.push({
         priority: 6, type:'warning', icon:'🟡',
         title: `Atenção: ${name} em ${pct}%`,
-        body:  `Você já usou ${pct}% do teto de ${name}. Restam R$${(budget.amount - cat.spent).toFixed(2)}.`,
+        body:  `Você já usou ${pct}% do teto. Restam R$${(Number(budget.amount) - cat.spent).toFixed(2)}.`,
         action: { label:'Ver tetos', url:'/budgets' },
       });
     }
   }
 
   // ── Regra 3: Dívidas vencidas / vencendo ────────────────────────────
-  for (const debt of (debts||[])) {
-    if (debt.done || debt.paid_installments >= debt.installments) continue;
+  for (const debt of debts) {
     if (!debt.start_date || !debt.due_day) continue;
-
-    const start = new Date(debt.start_date);
-    const nextDue = new Date(start.getFullYear(), start.getMonth() + debt.paid_installments, debt.due_day);
-    const diff    = Math.ceil((nextDue - today) / (1000*60*60*24));
+    const nextDue = new Date(debt.start_date);
+    nextDue.setMonth(nextDue.getMonth() + debt.paid_installments);
+    nextDue.setDate(debt.due_day);
+    const diff = Math.ceil((nextDue - today) / (1000*60*60*24));
 
     if (diff < 0) {
       insights.push({
@@ -111,15 +103,15 @@ router.get('/', async (req, res) => {
   }
 
   // ── Regra 4: Fatura de cartão fechando ──────────────────────────────
-  for (const card of (cards||[])) {
+  for (const card of cards) {
     if (!card.closing_day) continue;
-    const closingDate = new Date(year, month-1, card.closing_day);
+    const closingDate = new Date(year, month - 1, card.closing_day);
     const diff = Math.ceil((closingDate - today) / (1000*60*60*24));
     if (diff >= 0 && diff <= 3) {
       insights.push({
         priority: 8, type:'critical', icon:'💳',
         title: `Fatura ${card.name} fecha em ${diff===0?'hoje':`${diff} dia(s)`}`,
-        body:  `A fatura do cartão ${card.name} fecha ${diff===0?'hoje':'dia '+card.closing_day}. Verifique os lançamentos pendentes.`,
+        body:  `Verifique os lançamentos pendentes antes do fechamento.`,
         action: { label:'Ver cartões', url:'/credit-cards' },
       });
     }
@@ -127,11 +119,10 @@ router.get('/', async (req, res) => {
 
   // ── Regra 5: Saldo negativo ──────────────────────────────────────────
   if (income > 0 && expense > income) {
-    const diff = expense - income;
     insights.push({
       priority: 5, type:'warning', icon:'📉',
       title: `Despesas superam receitas este mês`,
-      body:  `Você gastou R$${diff.toFixed(2)} a mais do que recebeu. Revise suas despesas para fechar o mês no positivo.`,
+      body:  `Você gastou R$${(expense-income).toFixed(2)} a mais do que recebeu.`,
       action: { label:'Ver dashboard', url:'/' },
     });
   }
@@ -140,37 +131,36 @@ router.get('/', async (req, res) => {
   if (income === 0 && expense > 0) {
     insights.push({
       priority: 1, type:'info', icon:'💡',
-      title: `Nenhuma receita lançada em ${today.toLocaleString('pt-BR',{month:'long'})}`,
-      body:  `Você tem R$${expense.toFixed(2)} em despesas mas nenhuma receita registrada. Lembre-se de lançar seus ganhos.`,
+      title: `Nenhuma receita lançada este mês`,
+      body:  `Você tem R$${expense.toFixed(2)} em despesas mas nenhuma receita registrada.`,
       action: { label:'Adicionar receita', url:'/' },
     });
   }
 
   // ── Regra 7: Recorrentes não geradas ────────────────────────────────
-  const pendingRecurrings = (recurrings||[]).filter(r => {
+  const pendingRec = recurrings.filter(r => {
     if (r.frequency !== 'monthly') return false;
     if (!r.last_created_at) return true;
     const last = new Date(r.last_created_at);
     return !(last.getMonth()+1 === month && last.getFullYear() === year);
   });
-  if (pendingRecurrings.length > 0) {
+  if (pendingRec.length > 0) {
     insights.push({
       priority: 4, type:'attention', icon:'🔄',
-      title: `${pendingRecurrings.length} recorrente(s) pendente(s)`,
-      body:  `${pendingRecurrings.slice(0,3).map(r=>r.description||'Sem nome').join(', ')}${pendingRecurrings.length>3?' e mais...':''} ainda não foram geradas este mês.`,
+      title: `${pendingRec.length} recorrente(s) pendente(s)`,
+      body:  `${pendingRec.slice(0,3).map(r=>r.description||'Sem nome').join(', ')}${pendingRec.length>3?' e mais...':''} ainda não foram geradas.`,
       action: { label:'Ver recorrentes', url:'/recurring' },
     });
   }
 
   // ── Regra 8: Meta quase concluída ───────────────────────────────────
-  for (const goal of (goals||[])) {
-    const pct = goal.target_amount > 0 ? Math.round(goal.current_amount/goal.target_amount*100) : 0;
+  for (const goal of goals) {
+    const pct = goal.target_amount > 0 ? Math.round(goal.current_amount / goal.target_amount * 100) : 0;
     if (pct >= 90 && pct < 100) {
-      const missing = Number(goal.target_amount) - Number(goal.current_amount);
       insights.push({
         priority: 3, type:'attention', icon:'🎯',
         title: `Meta "${goal.name}" quase concluída (${pct}%)`,
-        body:  `Faltam apenas R$${missing.toFixed(2)} para concluir esta meta. Um último esforço!`,
+        body:  `Faltam R$${(Number(goal.target_amount)-Number(goal.current_amount)).toFixed(2)} para concluir esta meta.`,
         action: { label:'Ver metas', url:'/goals' },
       });
     }
@@ -180,19 +170,17 @@ router.get('/', async (req, res) => {
   if (expense > 0) {
     const topCat = Object.entries(spentByCat).sort((a,b)=>b[1].spent-a[1].spent)[0];
     if (topCat && topCat[1].spent / expense > 0.4) {
-      const pct = Math.round(topCat[1].spent/expense*100);
+      const pct = Math.round(topCat[1].spent / expense * 100);
       insights.push({
         priority: 2, type:'info', icon:'📊',
         title: `${topCat[1].name} representa ${pct}% das despesas`,
-        body:  `Você gastou R$${topCat[1].spent.toFixed(2)} em ${topCat[1].name}, que é ${pct}% de todas as suas despesas do mês.`,
+        body:  `Você gastou R$${topCat[1].spent.toFixed(2)} em ${topCat[1].name} este mês.`,
         action: { label:'Ver categorias', url:'/categories' },
       });
     }
   }
 
-  // Ordena por prioridade decrescente
-  insights.sort((a,b) => b.priority - a.priority);
-
+  insights.sort((a, b) => b.priority - a.priority);
   res.json(insights);
 });
 
