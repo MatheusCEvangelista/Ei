@@ -17,6 +17,7 @@ const projectionRoutes    = require('./routes/projections');
 const debtRoutes          = require('./routes/debts');
 const creditCardRoutes    = require('./routes/credit_cards');
 const transferRoutes      = require('./routes/transfers');
+const insightRoutes       = require('./routes/insights');
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/projections',   projectionRoutes);
 app.use('/api/debts',         debtRoutes);
 app.use('/api/credit-cards',  creditCardRoutes);
 app.use('/api/transfers',     transferRoutes);
+app.use('/api/insights',      insightRoutes);
 
 // Passa helper de notificação para as rotas que precisam
 app.locals.createNotification = notificationRoutes.createNotification;

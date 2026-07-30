@@ -12,7 +12,7 @@ import BudgetWidget      from '../components/BudgetWidget';
 import Navbar            from '../components/Navbar';
 import { useExportCSV }  from '../hooks/useExportCSV';
 import TransferModal     from '../components/TransferModal';
-
+import InsightsWidget from '../components/InsightsWidget';
 const card = { background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'20px 18px 16px' };
 
 export default function Dashboard() {
@@ -85,6 +85,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{display:'flex', flexDirection:'column', gap:14}}>
+          <InsightsWidget />
           <SummaryCards summary={summary} loading={loading}/>
           <div className="charts-grid" style={{display:'grid', gap:14}}>
             <div style={card}>
