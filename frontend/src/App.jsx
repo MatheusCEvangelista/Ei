@@ -15,6 +15,7 @@ import ProjectionsPage           from './pages/ProjectionsPage';
 import DebtsPage                 from './pages/DebtsPage';
 import CreditCardsPage           from './pages/CreditCardsPage';
 import ReportPage                from './pages/ReportPage';
+import LeonWidget                from './components/LeonWidget';
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="*"                     element={<Navigate to="/" replace />} />
         </Routes>
         <PWAInstallPrompt/>
+        <LeonWidget/>
       </BrowserRouter>
     </AuthProvider>
   );
