@@ -17,6 +17,18 @@ import CreditCardsPage           from './pages/CreditCardsPage';
 import ReportPage                from './pages/ReportPage';
 import LeonWidget                from './components/LeonWidget';
 
+// Widgets que só aparecem para usuários autenticados
+function AuthWidgets() {
+  const { user } = useAuth();
+  if (!user) return null;
+  return (
+    <>
+      <PWAInstallPrompt/>
+      <LeonWidget/>
+    </>
+  );
+}
+
 function PrivateRoute({ children }) {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" replace />;
@@ -47,8 +59,7 @@ export default function App() {
           <Route path="/report"                  element={<PrivateRoute><ReportPage/></PrivateRoute>} />
           <Route path="*"                     element={<Navigate to="/" replace />} />
         </Routes>
-        <PWAInstallPrompt/>
-        <LeonWidget/>
+        <AuthWidgets/>
       </BrowserRouter>
     </AuthProvider>
   );
