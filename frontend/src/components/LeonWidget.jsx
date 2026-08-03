@@ -125,13 +125,13 @@ export default function LeonWidget() {
 
       {/* Painel de chat */}
       {open && (
-        <div className="leon-chat-panel" style={{
+        <div className="leon-chat-panel fade-up" style={{
           position:'fixed', zIndex:49,
           maxHeight:'60vh',
           background:'var(--bg2)', border:'1px solid var(--border-md)',
           borderRadius:18, boxShadow:'0 8px 40px rgba(0,0,0,0.3)',
           display:'flex', flexDirection:'column', overflow:'hidden',
-        }} className="fade-up">
+        }}>
 
           {/* Header */}
           <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',borderBottom:'1px solid var(--border)',background:'var(--bg3)',flexShrink:0}}>
