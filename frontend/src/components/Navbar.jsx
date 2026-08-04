@@ -4,7 +4,6 @@ import { useTheme } from '../context/ThemeContext';
 import { useNavigate, NavLink, useLocation } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 
-// Links primários — sempre visíveis no desktop
 const PRIMARY = [
   { to:'/',            label:'Dashboard',    icon:'🏠', end:true },
   { to:'/accounts',    label:'Contas',       icon:'🏦' },
@@ -13,7 +12,6 @@ const PRIMARY = [
   { to:'/goals',       label:'Metas',        icon:'🎯' },
 ];
 
-// Links secundários — no menu "Mais ▾" no desktop e na sheet mobile
 const SECONDARY = [
   { to:'/recurring',   label:'Recorrentes',  icon:'🔄' },
   { to:'/debts',       label:'Dívidas',      icon:'💰' },
@@ -24,21 +22,18 @@ const SECONDARY = [
   { to:'/report',      label:'Relatório',    icon:'📄' },
 ];
 
-const ALL = [...PRIMARY, ...SECONDARY];
-
 export default function Navbar() {
-  const { user, logout }   = useAuth();
+  const { user, logout }       = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const navigate           = useNavigate();
-  const location           = useLocation();
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const navigate               = useNavigate();
+  const location               = useLocation();
+  const [moreOpen,   setMoreOpen]   = useState(false);
+  const [sheetOpen,  setSheetOpen]  = useState(false);
   const moreRef = useRef();
   const isDark  = theme === 'dark';
 
   async function handleLogout() { await logout(); navigate('/login'); }
 
-  // Fecha dropdown "Mais" ao clicar fora
   useEffect(() => {
     if (!moreOpen) return;
     function handle(e) { if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false); }
@@ -46,8 +41,9 @@ export default function Navbar() {
     return () => { clearTimeout(t); document.removeEventListener('pointerdown', handle); };
   }, [moreOpen]);
 
-  // Verifica se algum link secundário está ativo
-  const secondaryActive = SECONDARY.some(l => l.end ? location.pathname === l.to : location.pathname.startsWith(l.to));
+  const secondaryActive = SECONDARY.some(l =>
+    l.end ? location.pathname === l.to : location.pathname.startsWith(l.to)
+  );
 
   const linkStyle = (isActive) => ({
     padding:'6px 10px', borderRadius:8, fontSize:13, fontWeight:500,
@@ -55,30 +51,37 @@ export default function Navbar() {
     color: isActive ? 'var(--indigo)' : 'var(--text)',
     background: isActive ? 'var(--indigo-dim)' : 'transparent',
     opacity: isActive ? 1 : 0.85,
-    display:'flex', alignItems:'center', gap:5,
   });
 
   return (
     <>
-      {/* ── TOP BAR ─────────────────────────────────────────────────────── */}
-      <header style={{background:'var(--bg2)',borderBottom:'1px solid var(--border)',position:'sticky',top:0,zIndex:40}}>
-        <div style={{maxWidth:1100,margin:'0 auto',padding:'0 16px',height:54,display:'flex',alignItems:'center',gap:12}}>
+      <style>{`
+        .nb-hide { display:flex; }
+        .bottom-nav { display:none; }
+        @media(max-width:820px){
+          .nb-hide   { display:none !important; }
+          .bottom-nav{ display:flex; }
+        }
+      `}</style>
 
-          {/* Logo */}
-          <div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0,cursor:'pointer'}} onClick={()=>navigate('/')}>
-            <div style={{width:28,height:28,borderRadius:8,background:'linear-gradient(135deg,var(--indigo),#a78bfa)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13}}>💰</div>
-            <span style={{fontWeight:700,fontSize:14,color:'var(--text)',letterSpacing:'-0.02em'}} className="hide-mobile">FinanceApp</span>
+      {/* ── TOP BAR ── */}
+      <header style={{background:'var(--bg2)',borderBottom:'1px solid var(--border)',position:'sticky',top:0,zIndex:40}}>
+        <div style={{maxWidth:1100,margin:'0 auto',padding:'0 16px',height:54,display:'flex',alignItems:'center',gap:14}}>
+
+          {/* Logo Ei! */}
+          <div style={{flexShrink:0,cursor:'pointer',display:'flex',alignItems:'center'}} onClick={()=>navigate('/')}>
+            <img src="/logo.png" alt="Ei!" style={{height:38,width:'auto',objectFit:'contain'}}/>
           </div>
 
-          {/* Links primários — desktop */}
-          <nav style={{display:'flex',alignItems:'center',gap:2,flex:1,overflow:'visible',minWidth:0}} className="hide-mobile">
+          {/* Links primários desktop */}
+          <nav className="nb-hide" style={{display:'flex',alignItems:'center',gap:2,flex:1,overflow:'visible',minWidth:0}}>
             {PRIMARY.map(l=>(
               <NavLink key={l.to} to={l.to} end={l.end} style={({isActive})=>linkStyle(isActive)}>
                 {l.label}
               </NavLink>
             ))}
 
-            {/* Dropdown "Mais" */}
+            {/* Mais ▾ */}
             <div ref={moreRef} style={{position:'relative'}}>
               <button onClick={()=>setMoreOpen(v=>!v)} style={{
                 padding:'6px 10px', borderRadius:8, fontSize:13, fontWeight:500,
@@ -88,7 +91,7 @@ export default function Navbar() {
                 display:'flex', alignItems:'center', gap:4, whiteSpace:'nowrap',
                 opacity: moreOpen||secondaryActive ? 1 : 0.85,
               }}>
-                Mais {moreOpen ? '▴' : '▾'}
+                Mais {moreOpen?'▴':'▾'}
               </button>
 
               {moreOpen && (
@@ -96,23 +99,22 @@ export default function Navbar() {
                   position:'absolute', left:0, top:42, zIndex:50,
                   background:'var(--bg2)', border:'1px solid var(--border-md)',
                   borderRadius:12, padding:6, display:'grid',
-                  gridTemplateColumns:'1fr 1fr', gap:4, boxShadow:'var(--shadow)',
-                  minWidth:280,
+                  gridTemplateColumns:'1fr 1fr', gap:4,
+                  boxShadow:'var(--shadow)', minWidth:280,
                 }}>
                   {SECONDARY.map(l=>(
                     <NavLink key={l.to} to={l.to} onClick={()=>setMoreOpen(false)}
                       style={({isActive})=>({
                         padding:'9px 12px', borderRadius:8, fontSize:13, fontWeight:500,
                         textDecoration:'none', display:'flex', alignItems:'center', gap:8,
-                        color: isActive ? 'var(--indigo)' : 'var(--text)',
-                        background: isActive ? 'var(--indigo-dim)' : 'transparent',
+                        color: isActive?'var(--indigo)':'var(--text)',
+                        background: isActive?'var(--indigo-dim)':'transparent',
                         transition:'background 0.1s',
                       })}
-                      onMouseOver={e=>{ if(!e.currentTarget.style.background.includes('indigo')) e.currentTarget.style.background='var(--bg3)'; }}
-                      onMouseOut={e=>{ if(!e.currentTarget.style.background.includes('indigo-dim')) e.currentTarget.style.background='transparent'; }}
+                      onMouseOver={e=>{ if(!e.currentTarget.style.background.includes('var(--indigo-dim)')) e.currentTarget.style.background='var(--bg3)'; }}
+                      onMouseOut={e=>{ if(!e.currentTarget.style.background.includes('var(--indigo-dim)')) e.currentTarget.style.background='transparent'; }}
                     >
-                      <span style={{fontSize:16}}>{l.icon}</span>
-                      <span>{l.label}</span>
+                      <span style={{fontSize:16}}>{l.icon}</span>{l.label}
                     </NavLink>
                   ))}
                 </div>
@@ -120,14 +122,14 @@ export default function Navbar() {
             </div>
           </nav>
 
-          {/* Ações do lado direito */}
+          {/* Ações direita */}
           <div style={{display:'flex',alignItems:'center',gap:8,marginLeft:'auto',flexShrink:0}}>
             <NotificationBell/>
             <button onClick={toggleTheme} title={isDark?'Modo claro':'Modo escuro'}
               style={{width:32,height:32,borderRadius:8,border:'1px solid var(--border)',background:'var(--bg3)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>
               {isDark?'☀️':'🌙'}
             </button>
-            <button onClick={handleLogout} className="hide-mobile"
+            <button onClick={handleLogout} className="nb-hide"
               style={{fontSize:12,color:'var(--text2)',background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:7,padding:'4px 10px',cursor:'pointer',fontFamily:'var(--font)'}}
               onMouseOver={e=>e.currentTarget.style.color='var(--red)'}
               onMouseOut={e=>e.currentTarget.style.color='var(--text2)'}>
@@ -137,12 +139,7 @@ export default function Navbar() {
         </div>
       </header>
 
-      {/* ── BOTTOM NAV (mobile) ──────────────────────────────────────────── */}
-      <style>{`
-        .bottom-nav { display:none; }
-        @media (max-width:820px) { .bottom-nav { display:flex; } .hide-mobile { display:none !important; } }
-      `}</style>
-
+      {/* ── BOTTOM NAV mobile ── */}
       <nav className="bottom-nav" style={{
         position:'fixed', bottom:0, left:0, right:0, zIndex:40,
         background:'var(--bg2)', borderTop:'1px solid var(--border)',
@@ -161,8 +158,6 @@ export default function Navbar() {
             <span style={{fontSize:10,fontWeight:500}}>{l.label}</span>
           </NavLink>
         ))}
-
-        {/* Botão "Mais" mobile */}
         <button onClick={()=>setSheetOpen(true)} style={{
           display:'flex', flexDirection:'column', alignItems:'center', gap:2,
           background:'transparent', border:'none', cursor:'pointer', fontFamily:'var(--font)',
@@ -174,34 +169,32 @@ export default function Navbar() {
         </button>
       </nav>
 
-      {/* ── SHEET "Mais" (mobile) ────────────────────────────────────────── */}
+      {/* ── Sheet mobile ── */}
       {sheetOpen && (
         <div style={{position:'fixed',inset:0,zIndex:50,background:'rgba(0,0,0,0.5)',backdropFilter:'blur(3px)'}} onClick={()=>setSheetOpen(false)}>
           <div style={{position:'absolute',bottom:0,left:0,right:0,background:'var(--bg2)',borderRadius:'18px 18px 0 0',padding:'8px 16px 32px',boxShadow:'var(--shadow)'}} onClick={e=>e.stopPropagation()}>
-            <div style={{width:36,height:4,borderRadius:2,background:'var(--bg3)',margin:'8px auto 16px'}}/>
-
-            {/* User info + logout */}
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16,padding:'0 4px'}}>
-              <span style={{fontSize:13,color:'var(--text2)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'70%'}}>
-                {user?.user_metadata?.name||user?.email}
-              </span>
-              <button onClick={handleLogout} style={{fontSize:13,color:'var(--red)',background:'var(--red-dim)',border:'none',borderRadius:7,padding:'5px 12px',cursor:'pointer',fontFamily:'var(--font)'}}>Sair</button>
+            <div style={{width:36,height:4,borderRadius:2,background:'var(--bg3)',margin:'8px auto 14px'}}/>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,padding:'0 4px'}}>
+              <img src="/logo.png" alt="Ei!" style={{height:32,width:'auto'}}/>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <span style={{fontSize:12,color:'var(--text3)',maxWidth:150,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                  {user?.user_metadata?.name||user?.email}
+                </span>
+                <button onClick={handleLogout} style={{fontSize:13,color:'var(--red)',background:'var(--red-dim)',border:'none',borderRadius:7,padding:'5px 12px',cursor:'pointer',fontFamily:'var(--font)'}}>Sair</button>
+              </div>
             </div>
-
-            {/* Links primários restantes + todos os secundários */}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
               {[PRIMARY[4], ...SECONDARY].map(l=>(
                 <NavLink key={l.to} to={l.to} onClick={()=>setSheetOpen(false)}
                   style={({isActive})=>({
                     display:'flex', alignItems:'center', gap:10,
                     padding:'12px 14px', borderRadius:10, textDecoration:'none',
-                    color: isActive ? 'var(--indigo)' : 'var(--text)',
-                    background: isActive ? 'var(--indigo-dim)' : 'var(--bg3)',
+                    color: isActive?'var(--indigo)':'var(--text)',
+                    background: isActive?'var(--indigo-dim)':'var(--bg3)',
                     border:`1px solid ${isActive?'rgba(124,127,247,0.3)':'var(--border)'}`,
                     fontSize:13, fontWeight:500,
                   })}>
-                  <span style={{fontSize:18}}>{l.icon}</span>
-                  {l.label}
+                  <span style={{fontSize:18}}>{l.icon}</span>{l.label}
                 </NavLink>
               ))}
             </div>
@@ -209,10 +202,9 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* Espaço para compensar bottom nav no mobile */}
       <style>{`
-        @media (max-width:820px) {
-          main, .page-main { padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important; }
+        @media(max-width:820px){
+          main,.page-main{padding-bottom:calc(80px + env(safe-area-inset-bottom)) !important;}
         }
       `}</style>
     </>
