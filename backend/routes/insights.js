@@ -1,3 +1,7 @@
+const express = require('express');
+const router = express.Router();
+const { db, safeQuery } = require('../lib/db'); // Ajuste o caminho de db/safeQuery se o seu arquivo estiver em outro diretório
+
 // ── Score de Saúde Financeira (/api/insights/score) ──────────────────────
 router.get('/score', async (req, res) => {
   const supabase = db(req.token);
