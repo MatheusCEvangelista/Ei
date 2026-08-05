@@ -13,6 +13,9 @@ import Navbar            from '../components/Navbar';
 import { useExportCSV }  from '../hooks/useExportCSV';
 import TransferModal     from '../components/TransferModal';
 import InsightsWidget from '../components/InsightsWidget';
+import HealthScore          from '../components/HealthScore';
+import CategoryRulesModal   from '../components/CategoryRulesModal';
+
 const card = { background:'var(--bg2)', border:'1px solid var(--border)', borderRadius:'var(--radius)', padding:'20px 18px 16px' };
 
 export default function Dashboard() {
@@ -69,6 +72,9 @@ export default function Dashboard() {
           <MonthSelector month={month} year={year} onChange={(m,y) => { setMonth(m); setYear(y); }}/>
           <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
             <MonthlyAnalysis month={month} year={year}/>
+            <button onClick={() => setShowRules(true)} style={{padding:'8px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--bg2)', color:'var(--text2)', fontFamily:'var(--font)', fontSize:13, fontWeight:500, cursor:'pointer'}}>
+              🧠 Regras
+            </button>          
             <button onClick={() => setShowTransfer(true)} style={{padding:'8px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--bg2)', color:'var(--text2)', fontFamily:'var(--font)', fontSize:13, fontWeight:500, cursor:'pointer'}}>
               🔄 Transferir
             </button>
@@ -86,6 +92,7 @@ export default function Dashboard() {
 
         <div style={{display:'flex', flexDirection:'column', gap:14}}>
           <InsightsWidget />
+          <HealthScore />
           <SummaryCards summary={summary} loading={loading}/>
           <div className="charts-grid" style={{display:'grid', gap:14}}>
             <div style={card}>
