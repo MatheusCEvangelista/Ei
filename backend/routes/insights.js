@@ -1,6 +1,15 @@
 const express = require('express');
-const router = express.Router();
-const { db, safeQuery } = require('../lib/db'); // Ajuste o caminho de db/safeQuery se o seu arquivo estiver em outro diretório
+const router  = express.Router();
+const { createClient } = require('@supabase/supabase-js');
+const authMiddleware   = require('../middleware/auth');
+
+router.use(authMiddleware);
+
+function db(token) {
+  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+}
 
 // ── Score de Saúde Financeira (/api/insights/score) ──────────────────────
 router.get('/score', async (req, res) => {
@@ -10,13 +19,25 @@ router.get('/score', async (req, res) => {
     return { start:`${y}-${String(m).padStart(2,'0')}-01`, end:new Date(y,m,0).toISOString().split('T')[0] };
   })();
 
-  const [txs, budgets, goals, debts, investments] = await Promise.all([
-    safeQuery(supabase.from('transactions').select('amount,type,category_id,transfer_id').eq('user_id',req.user.id).gte('date',start).lte('date',end)),
-    safeQuery(supabase.from('budgets').select('amount,category_id').eq('user_id',req.user.id)),
-    safeQuery(supabase.from('goals').select('current_amount,target_amount').eq('user_id',req.user.id)),
-    safeQuery(supabase.from('debts').select('installment_value,paid_installments,installments').eq('user_id',req.user.id)),
-    safeQuery(supabase.from('investments').select('type,quantity,avg_price,initial_amount').eq('user_id',req.user.id)),
+  const [
+    { data: txsData },
+    { data: budgetsData },
+    { data: goalsData },
+    { data: debtsData },
+    { data: investmentsData }
+  ] = await Promise.all([
+    supabase.from('transactions').select('amount,type,category_id,transfer_id').eq('user_id',req.user.id).gte('date',start).lte('date',end),
+    supabase.from('budgets').select('amount,category_id').eq('user_id',req.user.id),
+    supabase.from('goals').select('current_amount,target_amount').eq('user_id',req.user.id),
+    supabase.from('debts').select('installment_value,paid_installments,installments').eq('user_id',req.user.id),
+    supabase.from('investments').select('type,quantity,avg_price,initial_amount').eq('user_id',req.user.id),
   ]);
+
+  const txs = txsData || [];
+  const budgets = budgetsData || [];
+  const goals = goalsData || [];
+  const debts = debtsData || [];
+  const investments = investmentsData || [];
 
   const real    = txs.filter(t=>!t.transfer_id);
   const income  = real.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
