@@ -13,12 +13,13 @@ const investmentRoutes   = require('./routes/investments');
 const budgetRoutes       = require('./routes/budgets');
 const aiRoutes           = require('./routes/ai');
 const notificationRoutes = require('./routes/notifications');
-const projectionRoutes    = require('./routes/projections');
-const debtRoutes          = require('./routes/debts');
-const creditCardRoutes    = require('./routes/credit_cards');
-const transferRoutes      = require('./routes/transfers');
-const insightRoutes       = require('./routes/insights');
-const leonRoutes          = require('./routes/leon');
+const projectionRoutes   = require('./routes/projections');
+const debtRoutes         = require('./routes/debts');
+const creditCardRoutes   = require('./routes/credit_cards');
+const transferRoutes     = require('./routes/transfers');
+const insightRoutes      = require('./routes/insights');
+const leonRoutes         = require('./routes/leon');
+const importRoutes       = require('./routes/import');
 
 const app = express();
 
@@ -58,8 +59,8 @@ app.use('/api/credit-cards',  creditCardRoutes);
 app.use('/api/transfers',     transferRoutes);
 app.use('/api/insights',      insightRoutes);
 app.use('/api/leon',          leonRoutes);
+app.use('/api/import',        importRoutes);
 
-// Passa helper de notificação para as rotas que precisam
 app.locals.createNotification = notificationRoutes.createNotification;
 
 app.use((err, req, res, next) => {
