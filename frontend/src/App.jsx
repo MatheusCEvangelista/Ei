@@ -16,7 +16,7 @@ import DebtsPage                 from './pages/DebtsPage';
 import CreditCardsPage           from './pages/CreditCardsPage';
 import ReportPage                from './pages/ReportPage';
 import LeonWidget                from './components/LeonWidget';
-
+import CalendarPage              from './pages/CalendarPage';
 // Widgets que só aparecem para usuários autenticados
 function AuthWidgets() {
   const { user } = useAuth();
@@ -57,6 +57,7 @@ export default function App() {
           <Route path="/debts"                 element={<PrivateRoute><DebtsPage/></PrivateRoute>} />
           <Route path="/credit-cards"           element={<PrivateRoute><CreditCardsPage/></PrivateRoute>} />
           <Route path="/report"                  element={<PrivateRoute><ReportPage/></PrivateRoute>} />
+          <Route path="/calendar" element={<PrivateRoute><CalendarPage/></PrivateRoute>} />
           <Route path="*"                     element={<Navigate to="/" replace />} />
         </Routes>
         <AuthWidgets/>

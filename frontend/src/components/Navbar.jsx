@@ -20,6 +20,7 @@ const SECONDARY = [
   { to:'/categories',  label:'Categorias',   icon:'🏷️' },
   { to:'/calculators', label:'Calculadoras', icon:'🧮' },
   { to:'/report',      label:'Relatório',    icon:'📄' },
+  { to:'/calendar', label:'Calendário', icon:'📅' },
 ];
 
 export default function Navbar() {
