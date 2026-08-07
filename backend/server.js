@@ -21,6 +21,7 @@ const insightRoutes      = require('./routes/insights');
 const leonRoutes         = require('./routes/leon');
 const importRoutes       = require('./routes/import');
 const calendarRoutes     = require('./routes/calendar');
+const networthRoutes     = require('./routes/networth');
 
 const app = express();
 
@@ -62,6 +63,7 @@ app.use('/api/insights',      insightRoutes);
 app.use('/api/leon',          leonRoutes);
 app.use('/api/import',        importRoutes);
 app.use('/api/calendar',      calendarRoutes);
+app.use('/api/networth',      networthRoutes);
 
 app.locals.createNotification = notificationRoutes.createNotification;
 
