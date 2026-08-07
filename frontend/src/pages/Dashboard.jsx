@@ -32,7 +32,7 @@ export default function Dashboard() {
   const [showImport,   setShowImport]   = useState(false);
   const [editingTx,    setEditingTx]    = useState(null);
   const [loading,      setLoading]      = useState(true);
-  
+  const [showRules, setShowRules] = useState(false);
   const { exportCSV } = useExportCSV();
 
   async function loadData() {
@@ -105,7 +105,7 @@ export default function Dashboard() {
             </div>
           </div>
           <BudgetWidget month={month} year={year}/>
-
+  
           <div style={card}>
             <p style={{fontSize:11, color:'var(--text3)', fontWeight:600, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:16}}>Transações do mês</p>
             <TransactionList 
@@ -125,6 +125,7 @@ export default function Dashboard() {
       
       {/* ✅ Chamada corrigida do modal de transferência */}
       {showTransfer && <TransferModal onClose={() => setShowTransfer(false)} onSave={() => { setShowTransfer(false); loadData(); }}/>}
+      {showRules && <CategoryRulesModal onClose={() => setShowRules(false)} />}
     </div>
   );
 }
