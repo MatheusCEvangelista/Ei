@@ -191,11 +191,30 @@ DADOS FINANCEIROS DO USUÁRIO (${ctx.mes}):
   return `${base}${extras[questionId]||''}\n\nPERGUNTA DO USUÁRIO: "${questions[questionId]}"`;
 }
 
+// ── System prompt do Leon ────────────────────────────────────────────────
+const LEON_SYSTEM = `Você é Leon, o camaleão conselheiro financeiro do app Ei!. Você é simpático, direto e usa linguagem informal mas profissional.
+
+REGRAS IMPORTANTES:
+- Responda SEMPRE em português brasileiro
+- Use no máximo 3 parágrafos curtos
+- Seja específico com os números fornecidos nos dados financeiros
+- Use 1-2 emojis de forma natural, nunca em excesso
+- Não repita a pergunta do usuário
+- Comece sempre de forma diferente (evite começar com "Olá" ou "Oi" toda vez)
+- Se os dados forem positivos, celebre! Se negativos, seja honesto mas encorajador
+- Termine com uma dica prática e acionável quando possível
+- Nunca invente dados — use apenas os fornecidos
+- Você tem acesso ao histórico da conversa — mantenha coerência com o que já foi dito
+- Se o usuário fizer uma pergunta fora do contexto financeiro, redirecione gentilmente para finanças`;
+
 // ── Endpoint principal: pergunta para o Leon (IA via Groq) ────────────────
 router.post('/ask', async (req, res) => {
-  const { question_id } = req.body;
-  const question = QUESTIONS.find(q=>q.id===question_id);
-  if (!question) return res.status(400).json({ error: 'Pergunta inválida' });
+  const { question_id, message, history = [] } = req.body;
+
+  // Valida: precisa de question_id (predefinida) OU message (livre)
+  const isFree     = question_id === 'free' && message;
+  const predefined = QUESTIONS.find(q => q.id === question_id);
+  if (!isFree && !predefined) return res.status(400).json({ error: 'Pergunta inválida' });
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'GROQ_API_KEY não configurada no servidor' });
@@ -203,7 +222,37 @@ router.post('/ask', async (req, res) => {
   try {
     const supabase = db(req.token);
     const ctx      = await getUserContext(supabase, req.user.id);
-    const prompt   = buildPrompt(question_id, ctx);
+
+    // Contexto financeiro resumido (sempre enviado)
+    const contextBlock = `
+DADOS FINANCEIROS ATUAIS (${ctx.mes}):
+Receitas: ${fmt(ctx.income)} | Despesas: ${fmt(ctx.expense)} | Saldo: ${fmt(ctx.balance)}
+Poupança: ${ctx.savingRate}% | Dias restantes: ${ctx.daysLeft}
+Top gastos: ${ctx.topCats.join(', ') || 'nenhum'}
+Tetos: ${ctx.budgetStatus.join('; ') || 'nenhum definido'}
+Metas: ${ctx.goalStatus.join('; ') || 'nenhuma'}
+Dívidas: ${ctx.debtStatus.join('; ') || 'nenhuma'}
+Carteira investida: ${fmt(ctx.invTotal)}
+Faturas cartão: ${ctx.cardInfo}
+`.trim();
+
+    // Monta o prompt da mensagem atual
+    let userPrompt;
+    if (isFree) {
+      userPrompt = `[CONTEXTO FINANCEIRO]
+${contextBlock}
+
+[PERGUNTA DO USUÁRIO]
+${message}`;
+    } else {
+      userPrompt = buildPrompt(question_id, ctx);
+    }
+
+    // Monta histórico de conversa para o Groq (máx últimas 6 mensagens)
+    const recentHistory = history.slice(-6).map(h => ({
+      role:    h.from === 'user' ? 'user' : 'assistant',
+      content: h.text,
+    }));
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -212,41 +261,26 @@ router.post('/ask', async (req, res) => {
         'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model:      'llama-3.1-8b-instant',
-        max_tokens: 250,
+        model:       'llama-3.1-8b-instant',
+        max_tokens:  300,
         temperature: 0.7,
         messages: [
-          {
-            role:    'system',
-            content: `Você é Leon, o camaleão conselheiro financeiro do app Ei!. Você é simpático, direto e usa linguagem informal mas profissional. 
-
-REGRAS IMPORTANTES:
-- Responda SEMPRE em português brasileiro
-- Use no máximo 3 parágrafos curtos
-- Seja específico com os números fornecidos
-- Use 1-2 emojis de forma natural, nunca em excesso
-- Não repita a pergunta do usuário
-- Comece sempre de forma diferente (evite começar com "Olá" ou "Oi" toda vez)
-- Se os dados forem positivos, celebre! Se negativos, seja honesto mas encorajador
-- Termine com uma dica prática e acionável quando possível
-- Nunca invente dados — use apenas os fornecidos`,
-          },
-          {
-            role:    'user',
-            content: prompt,
-          },
+          { role: 'system', content: LEON_SYSTEM },
+          ...recentHistory,
+          { role: 'user',   content: userPrompt },
         ],
       }),
     });
 
     const data = await response.json();
-
     if (!response.ok) {
       console.error('Groq error:', data);
       return res.status(500).json({ error: data.error?.message || 'Erro ao chamar o Groq' });
     }
 
-    const answer = data.choices?.[0]?.message?.content?.trim() || 'Não consegui gerar uma resposta agora. Tente novamente!';
+    const answer = data.choices?.[0]?.message?.content?.trim()
+      || 'Não consegui gerar uma resposta agora. Tente de novo! 🦎';
+
     res.json({ answer });
 
   } catch (err) {
