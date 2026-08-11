@@ -51,20 +51,56 @@ router.get('/state', async (req, res) => {
   const byCat   = {};
   real.filter(t=>t.type==='expense'&&t.category_id).forEach(t=>{ byCat[t.category_id]=(byCat[t.category_id]||0)+Number(t.amount); });
 
-  const budgetExceeded = budgets.some(b=>(byCat[b.category_id]||0)>=Number(b.amount));
-  const hasOverdue     = debts.some(d=>{
-    if(d.paid_installments>=d.installments||!d.start_date||!d.due_day) return false;
-    const dt=new Date(d.start_date);
-    dt.setMonth(dt.getMonth()+d.paid_installments); dt.setDate(d.due_day);
-    return dt<today;
+  // Bug fix: ignora orçamentos zerados e usa > em vez de >=
+  const budgetExceeded = budgets.some(b => {
+    const limit = Number(b.amount);
+    if (limit <= 0) return false; // ignora tetos sem valor
+    return (byCat[b.category_id]||0) > limit; // só > (não >=)
   });
 
-  let state = 'happy';
-  if (hasOverdue||(income>0&&expense>income)||budgetExceeded) state='stressed';
-  else if (income===0&&expense===0) state='curious';
-  else if (income>0&&expense/income>0.7) state='curious';
+  // Bug fix: calcula data de vencimento corretamente sem overflow
+  const hasOverdue = debts.some(d => {
+    if (d.paid_installments >= d.installments) return false;
+    if (!d.start_date || !d.due_day) return false;
+    try {
+      const base = new Date(d.start_date);
+      if (isNaN(base.getTime())) return false;
+      // Avança meses sem risco de overflow de data
+      const dueDate = new Date(
+        base.getFullYear(),
+        base.getMonth() + d.paid_installments,
+        d.due_day
+      );
+      return dueDate < today;
+    } catch { return false; }
+  });
 
-  res.json({ state });
+  const isNegative = income > 0 && expense > income;
+  const isHighSpend = income > 0 && expense / income > 0.85; // aumentado de 0.7 para 0.85
+
+  let state  = 'happy';
+  let reason = 'Tudo bem!';
+
+  if (hasOverdue) {
+    state  = 'stressed';
+    reason = 'Parcela de dívida vencida';
+  } else if (isNegative) {
+    state  = 'stressed';
+    reason = 'Despesas maiores que receitas';
+  } else if (budgetExceeded) {
+    state  = 'stressed';
+    reason = 'Teto de categoria ultrapassado';
+  } else if (income === 0 && expense === 0) {
+    state  = 'curious';
+    reason = 'Sem movimentações no mês';
+  } else if (isHighSpend) {
+    state  = 'curious';
+    reason = `Gastando ${Math.round(expense/income*100)}% da renda`;
+  } else {
+    reason = `Poupando ${Math.round((income-expense)/income*100)}% da renda`;
+  }
+
+  res.json({ state, reason });
 });
 
 // ── Coleta contexto financeiro completo do usuário ────────────────────────
