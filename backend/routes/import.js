@@ -12,65 +12,69 @@ function db(token) {
   });
 }
 
-// ── Dicionário built-in (regex → nome de categoria padrão) ────────────────
+// ── Dicionário built-in — mapeado para as categorias padrão do sistema ──────
 const BUILT_IN = [
-  // Alimentação — mercados e delivery
-  { re: /supermercado|mercado|carrefour|extra\b|pão de açúcar|atacadão|savegnago|big comp|hortifruti|açougue|panificadora|padaria|colher de pau/i, cat: 'Alimentação' },
-  { re: /restaurante|lanchonete|pizzaria|ifood|rappi|burger|mcdonalds|mcdonald|subway|habib|china in box|bobs|giraffas|madero|outback|arena cafe|food shop/i, cat: 'Alimentação' },
-  { re: /day2day|café\b|cafeteria|cantina|sushi|delivery|lanche|snack/i, cat: 'Alimentação' },
+  // Alimentação
+  { re: /supermercado|mercado|carrefour|extra\b|pão de açúcar|atacadão|savegnago|big comp|hortifruti|açougue|panificadora|padaria|colher de pau|mercearia/i, cat: 'Alimentação' },
+  { re: /restaurante|lanchonete|pizzaria|ifood|rappi|burger|mcdonalds|mcdonald|subway|habib|china in box|bobs|giraffas|madero|outback|arena cafe|food shop|lanches/i, cat: 'Alimentação' },
+  { re: /day2day|café\b|cafeteria|cantina|sushi|delivery.*comida|lanche|snack|açaí/i, cat: 'Alimentação' },
 
-  // Transporte — combustível
-  { re: /posto\b|gasolina|combustível|shell|ipiranga|petrobras|br distribuidora|candial|monte belo|paulo vi|galo branco/i, cat: 'Transporte' },
-  // Transporte — app e estacionamento
-  { re: /uber|99pop|99taxi|99app|cabify|blablacar|estacionamento|zona azul|rotativo/i, cat: 'Transporte' },
-  // Transporte — público
-  { re: /onibus|ônibus|metro|metrô|trem|bilhete único|cartão transporte/i, cat: 'Transporte' },
-
-  // Saúde — farmácia
-  { re: /farmácia|drogaria|droga\w*|ultrafarma|pacheco|raia\d+|raia\b|pague menos|drogasil|drogafarma|grupo fartura/i, cat: 'Saúde' },
-  // Saúde — plano e clínica
-  { re: /hospital|clínica|médico|plano de saúde|unimed|bradesco saúde|amil|convenio|sulamerica/i, cat: 'Saúde' },
-  // Saúde — academia
-  { re: /academia|smartfit|bodytech|bluefit|total pass|crossfit|gym\b/i, cat: 'Saúde' },
-
-  // Moradia — energia
-  { re: /energia|cemig|enel|cpfl|light\b|celesc|elektro|coelba|coelce|celpe|elektro/i, cat: 'Moradia' },
-  // Moradia — água
+  // Moradia
+  { re: /energia|cemig|enel|cpfl|light\b|celesc|elektro|coelba|coelce|celpe/i, cat: 'Moradia' },
   { re: /\bágua\b|saae|saneamento|copasa|sabesp|cedae|cagece|sanear/i, cat: 'Moradia' },
-  // Moradia — aluguel/condomínio
   { re: /aluguel|condomínio|imobiliária|taxa condominial|administradora imov/i, cat: 'Moradia' },
-  // Moradia — internet/telefone
-  { re: /\btim\b|\bclaro\b|\bvivo\b|\boi\b|net combo|banda larga|fibra optica|aliansce|travessia/i, cat: 'Moradia' },
+  { re: /\btim\b|\bclaro\b|\bvivo\b|\boi\b|net combo|banda larga|fibra|aliansce|travessia/i, cat: 'Moradia' },
 
-  // Assinaturas/Streaming
-  { re: /netflix|spotify|amazon prime|disney\+|hbo\b|globoplay|youtube premium|deezer|apple music|paramount|mp\*pastelarclube/i, cat: 'Assinaturas' },
-  { re: /icloud|microsoft 365|adobe|canva|dropbox|google one/i, cat: 'Assinaturas' },
+  // Transporte
+  { re: /posto\b|gasolina|combustível|shell|ipiranga|petrobras|br distribuidora|candial|monte belo|paulo vi|galo branco/i, cat: 'Transporte' },
+  { re: /uber|99pop|99taxi|99app|cabify|blablacar|estacionamento|zona azul|rotativo/i, cat: 'Transporte' },
+  { re: /onibus|ônibus|metro|metrô|trem|bilhete único|cartão transporte|passagem.*ibus/i, cat: 'Transporte' },
+
+  // Saúde
+  { re: /farmácia|drogaria|droga\w*|ultrafarma|pacheco|raia\d*|pague menos|drogasil|drogafarma|grupo fartura/i, cat: 'Saúde' },
+  { re: /hospital|clínica|médico|plano de saúde|unimed|bradesco saúde|amil|convenio|sulamerica/i, cat: 'Saúde' },
+  { re: /academia|smartfit|bodytech|bluefit|total pass|crossfit|gym\b|pilates|yoga/i, cat: 'Saúde' },
 
   // Educação
-  { re: /escola|faculdade|universidade|curso\b|mensalidade\b|uni-|facef|fundação|colegio|colégio/i, cat: 'Educação' },
-  { re: /livraria|cultura\b|fnac|submarino livros|amazon livros/i, cat: 'Educação' },
+  { re: /escola|faculdade|universidade|curso\b|mensalidade.*ens|uni-|facef|fundação|colégio|colegio/i, cat: 'Educação' },
+  { re: /livraria|cultura\b|fnac|submarino livros|livros|papelaria/i, cat: 'Educação' },
 
   // Lazer
-  { re: /cinema|teatro|show\b|ingresso|ticketmaster|eventim|sympla/i, cat: 'Lazer' },
-  { re: /hotel|pousada|airbnb|booking|hostel/i, cat: 'Lazer' },
-  { re: /passagem|latam|gol\b|azul\b|avianca|decolar|companhia aérea/i, cat: 'Lazer' },
+  { re: /cinema|teatro|show\b|ingresso|ticketmaster|eventim|sympla|parque|diversão/i, cat: 'Lazer' },
+  { re: /hotel|pousada|airbnb|booking|hostel|resort/i, cat: 'Lazer' },
+  { re: /passagem.*aére|latam|\bgol\b|\bazul\b|avianca|decolar|embarque/i, cat: 'Lazer' },
+  { re: /pub\b|bar\b|balada|boate|miguelzinho|snook/i, cat: 'Lazer' },
 
-  // Vestuário / Compras
-  { re: /\bcea\b|c&a|renner|riachuelo|marisa|\bzara\b|h&m\b|nike\b|adidas\b|via marte/i, cat: 'Vestuário' },
-  { re: /americanas|magazine luiza|casas bahia|shoptime|amazon\b|mercadolivre|b2w/i, cat: 'Compras' },
-  { re: /pereira e macedo|franca point|mania\b|loja\b/i, cat: 'Compras' },
+  // Vestuário
+  { re: /\bcea\b|c&a|renner|riachuelo|marisa|\bzara\b|h&m\b|\bnike\b|\badidas\b|via marte|brooks\b/i, cat: 'Vestuário' },
+
+  // Compras
+  { re: /americanas|magazine luiza|casas bahia|shoptime|\bamazon\b|mercadolivre|b2w|extra eletro|shopee/i, cat: 'Compras' },
+  { re: /pereira e macedo|franca point|mania\b|atacado|hiper/i, cat: 'Compras' },
+
+  // Assinaturas
+  { re: /netflix|spotify|amazon prime|disney\+|hbo\b|globoplay|youtube premium|deezer|apple music|paramount|mp\*pastelarclube/i, cat: 'Assinaturas' },
+  { re: /icloud|microsoft 365|adobe|canva|dropbox|google one|antivirus/i, cat: 'Assinaturas' },
+
+  // Beleza
+  { re: /salão|salon|cabelereiro|barbearia|beleza|estética|manicure|spa\b|depilação|perfum/i, cat: 'Beleza' },
+
+  // Pets
+  { re: /petshop|pet shop|\bvet\b|veterinário|veterinaria|ração|banho e tosa|\bpet\b/i, cat: 'Pets' },
 
   // Financeiro
-  { re: /pagamento.*cartão|pgto.*cartão|fatura.*cartão|pagamento.*mastercard|pagamento.*visa/i, cat: 'Financeiro' },
-  { re: /empréstimo|financiamento|parcela.*emprés|empréstimos mercado/i, cat: 'Financeiro' },
+  { re: /pagamento.*cartão|pgto.*cartão|fatura.*cartão|pagamento.*mastercard|pagamento.*visa|pagamento.*a\.m\.a/i, cat: 'Financeiro' },
+  { re: /empréstimo|financiamento|parcela.*emprés|empréstimos mercado|pagamento de parcela/i, cat: 'Financeiro' },
+  { re: /deb\.pgto\.boleto|pagamento boleto/i, cat: 'Financeiro' },
 
-  // Salário / Receitas
-  { re: /salário|salario|pagamento.*empresa|folha.*pagamento|holerite|pro-labore/i, cat: 'Salário' },
-  { re: /pix receb|pix.*recebido|transferencia recebida|ted recebido|tev recebido/i, cat: 'Receitas' },
-  { re: /rendimento|cdb\b|lci\b|lca\b|tesouro direto|juros recebido|disponibilizacao de beneficio/i, cat: 'Investimentos' },
+  // Salário (receitas)
+  { re: /salário|salario|pagamento.*empresa|folha.*pagamento|holerite|pro-labore|remuner/i, cat: 'Salário' },
 
-  // Animais
-  { re: /petshop|pet shop|vet\b|veterinário|ração|banho e tosa/i, cat: 'Animais' },
+  // Investimentos (receitas)
+  { re: /rendimento|cdb\b|lci\b|lca\b|tesouro direto|juros recebido|disponibilizacao de beneficio|dividendo/i, cat: 'Investimentos' },
+
+  // Renda Extra (receitas)
+  { re: /pix receb|pix.*recebido|transferencia recebida|ted recebido|tev recebido|freelance|freela/i, cat: 'Renda Extra' },
 ];
 
 // Gera hash determinístico para deduplicação
