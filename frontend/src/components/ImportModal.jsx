@@ -109,6 +109,116 @@ function parseSicoobPDF(text) {
   return txs;
 }
 
+
+// ── Parser PDF Sicoob Cartão de Crédito (Sicoobcard) ─────────────────────
+// Baseado no formato real: seções MOVIMENTOS e GASTOS, descrições em 2 linhas
+function parseSicoobCardPDF(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // Extrai ano do vencimento: "Vencimento: 19/08/2026"
+  const vencMatch = text.match(/Vencimento:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+  const vencYear  = vencMatch ? parseInt(vencMatch[3]) : new Date().getFullYear();
+  const vencMonth = vencMatch ? parseInt(vencMatch[2]) : new Date().getMonth()+1;
+
+  // Determina o ano de uma transação baseado no mês
+  // Parcelas antigas (jan/fev em fatura de ago) usam o ano do vencimento
+  function getTxYear(txMonth) {
+    // Se o mês da transação é muito maior que o vencimento, é do ano anterior
+    // Ex: mês 11 ou 12 numa fatura de jan = ano anterior
+    if (txMonth > vencMonth + 1) return vencYear - 1;
+    return vencYear;
+  }
+
+  // Transações a ignorar
+  const skipKeywords = [
+    'saldo anterior', 'anuidade', 'desc anuidade', 'pagamento-boleto',
+    'pagamento boleto', 'limite', 'encargo', 'total da fatura',
+    'pagamento minimo', 'rotativo', 'saque',
+  ];
+
+  const txs = [];
+  let i = 0;
+  let inTransactions = false; // começa a coletar após "MOVIMENTOS" ou "GASTOS"
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Detecta início das seções de transações
+    if (/^MOVIMENTOS$/i.test(line) || /^GASTOS DE/i.test(line)) {
+      inTransactions = true; i++; continue;
+    }
+
+    // Para de processar após o TOTAL ou seções de resumo
+    if (/^TOTAL\s+[\d.,]+/.test(line)) break;
+    if (/^(DEMONSTRATIVO|LIMITES|ENCARGOS|RESUMO|PERFIL|CANAIS|O PAGAMENTO)/i.test(line)) break;
+
+    if (!inTransactions) { i++; continue; }
+
+    // ── Formato linha completa: DD/MM DESCRIÇÃO VALOR ────────────────────
+    // Valor pode ter ponto de milhar: 1.234,56
+    // Também captura negativos: -426,20
+    const fullLine = line.match(/^(\d{2})\/(\d{2})\s+(.+?)\s+(-?[\d.]+,[\d]{2})$/);
+    if (fullLine) {
+      const [, day, month, desc, rawVal] = fullLine;
+      const amount = parseFloat(rawVal.replace(/\./g,'').replace(',','.'));
+      if (isNaN(amount) || amount === 0) { i++; continue; }
+
+      const descLower = desc.toLowerCase();
+      const isPayment = amount < 0 || /pagamento|pagto|credito em conta|estorno|desc anuidade/i.test(descLower);
+      const skipTx    = skipKeywords.some(kw => descLower.includes(kw));
+
+      txs.push({
+        date:        `${getTxYear(parseInt(month))}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`,
+        description: desc.trim().slice(0, 80),
+        amount:      Math.abs(amount),
+        type:        isPayment ? 'income' : 'expense',
+        category_id: '',
+        skip:        skipTx,
+      });
+      i++; continue;
+    }
+
+    // ── Formato descrição em 2 linhas ─────────────────────────────────────
+    // Linha 1: "21/01 MERCADOLIVRE*ECLOCKV 07/10 SO"  (sem valor)
+    // Linha 2: "GONALO 69,91"                          (continuação + valor)
+    const partialLine = line.match(/^(\d{2})\/(\d{2})\s+(.+)$/);
+    if (partialLine && i + 1 < lines.length) {
+      const nextLine = lines[i + 1];
+      // Próxima linha não começa com DD/MM e termina com valor
+      const contLine = nextLine.match(/^(.+?)\s+(-?[\d.]+,[\d]{2})$/);
+      if (contLine && !/^\d{2}\/\d{2}\s/.test(nextLine)) {
+        const [, day, month, partDesc] = partialLine;
+        const [, contDesc, rawVal]     = contLine;
+        const amount = parseFloat(rawVal.replace(/\./g,'').replace(',','.'));
+
+        if (!isNaN(amount) && amount !== 0) {
+          const fullDesc  = `${partDesc} ${contDesc}`.trim();
+          const descLower = fullDesc.toLowerCase();
+          const isPayment = amount < 0 || /pagamento|estorno/i.test(descLower);
+          const skipTx    = skipKeywords.some(kw => descLower.includes(kw));
+
+          txs.push({
+            date:        `${getTxYear(parseInt(month))}-${month.padStart(2,'0')}-${day.padStart(2,'0')}`,
+            description: fullDesc.slice(0, 80),
+            amount:      Math.abs(amount),
+            type:        isPayment ? 'income' : 'expense',
+            category_id: '',
+            skip:        skipTx,
+          });
+          i += 2; continue;
+        }
+      }
+    }
+
+    i++;
+  }
+
+  if (!txs.length) throw new Error(
+    'Nenhuma transação encontrada. Confirme que é o extrato de cartão Sicoob (PDF da fatura Sicoobcard).'
+  );
+  return txs;
+}
+
 function parseItauPDF(text) {
   const lines=text.split('\n');
   const skip=['SALDO DO DIA','período de visualização','emitido em','data lançamentos','saldo em conta','Limite da Conta','Total contratado','Os saldos','Aviso','Consultas,'];
@@ -135,7 +245,8 @@ const BANKS = [
   { id:'mp-csv',  label:'Mercado Pago', icon:'💳', format:'CSV', accept:'.csv,text/csv',       steps:['Abra o app do Mercado Pago','Vá em Atividade → Extrato','Toque em "Exportar" → CSV','Selecione o período e baixe'] },
   { id:'mp-pdf',  label:'Mercado Pago', icon:'💳', format:'PDF', accept:'.pdf,application/pdf', badge:'Novo', steps:['Acesse mercadopago.com.br','Vá em Conta → Extrato de conta','Clique em "Baixar PDF"','Selecione o período'] },
   { id:'pluxee',  label:'Pluxee',       icon:'🎫', format:'PDF', accept:'.pdf,application/pdf', badge:'Novo', steps:['Acesse o app ou site da Pluxee','Vá em Extrato → Multibenefícios','Exporte o extrato em PDF','Selecione o período'] },
-  { id:'sicoob',  label:'Sicoob',       icon:'🟢', format:'PDF', accept:'.pdf,application/pdf', badge:'Novo', steps:['Acesse o internet banking do Sicoob','Vá em Extrato → Conta Corrente','Selecione o período desejado','Clique em "Emitir" e salve o PDF'] },
+  { id:'sicoob',      label:'Sicoob',         icon:'🟢', format:'PDF', accept:'.pdf,application/pdf', steps:['Acesse o internet banking do Sicoob','Vá em Extrato → Conta Corrente','Selecione o período desejado','Clique em "Emitir" e salve o PDF'] },
+  { id:'sicoob-card', label:'Sicoob Cartão',  icon:'💳', format:'PDF', accept:'.pdf,application/pdf', badge:'Novo', steps:['Acesse o internet banking do Sicoob','Vá em Cartões → Fatura do Cartão','Selecione o mês desejado','Clique em "Imprimir/Salvar" o PDF'] },
   { id:'itau',    label:'Itaú',         icon:'🏦', format:'PDF', accept:'.pdf,application/pdf', steps:['Acesse o app ou internet banking Itaú','Vá em Conta corrente → Extrato','Selecione o período desejado','Clique em "Exportar" → PDF'] },
 ];
 
@@ -166,7 +277,8 @@ export default function ImportModal({ onClose, onSave }) {
         case 'mp-csv': parsed = parseMercadoPagoCSV(await file.text()); break;
         case 'mp-pdf': parsed = parseMercadoPagoPDF(await extractPDFText(file)); break;
         case 'pluxee': parsed = parsePluxeePDF(await extractPDFText(file)); break;
-        case 'sicoob': parsed = parseSicoobPDF(await extractPDFText(file)); break;
+        case 'sicoob':      parsed = parseSicoobPDF(await extractPDFText(file));     break;
+        case 'sicoob-card': parsed = parseSicoobCardPDF(await extractPDFText(file)); break;
         case 'itau':   parsed = parseItauPDF(await extractPDFText(file)); break;
         default: throw new Error('Selecione um banco antes de importar.');
       }
