@@ -7,11 +7,8 @@ import {
 import api from '../lib/api';
 import Navbar from '../components/Navbar';
 
-const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
-const fmtK = v => {
-  if(Math.abs(v)>=1000) return `R$${(v/1000).toFixed(1)}k`;
-  return fmt(v);
-};
+const fmt  = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
+const fmtK = v => Math.abs(v)>=1000?`R$${(v/1000).toFixed(1)}k`:fmt(v);
 
 const CustomTooltip = ({active,payload,label}) => {
   if(!active||!payload?.length) return null;
@@ -28,10 +25,10 @@ const CustomTooltip = ({active,payload,label}) => {
 };
 
 export default function ProjectionsPage() {
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [months,  setMonths]  = useState(6);
-  const [scenario,setScenario]= useState('realistic'); // realistic | pessimistic | optimistic
+  const [data,     setData]     = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [months,   setMonths]   = useState(6);
+  const [scenario, setScenario] = useState('realistic');
 
   async function load() {
     setLoading(true);
@@ -44,31 +41,56 @@ export default function ProjectionsPage() {
 
   useEffect(()=>{ load(); },[months]);
 
-  const chartData = data?.projection?.map(p => ({
-    label: p.label,
-    Receita:  p.income,
-    Despesa:  p.expense,
-    Saldo:    scenario==='pessimistic'?p.pessimistic:scenario==='optimistic'?p.optimistic:p.balance,
-    Acumulado:p.accumulated,
-  })) || [];
+  // Monta chartData ajustado pelo cenário selecionado
+  const chartData = data?.projection?.map(p => {
+    if (scenario === 'pessimistic') return {
+      label: p.label,
+      Receita:  p.pess_income,
+      Despesa:  p.pess_expense,
+      Saldo:    p.pessimistic,
+      Acumulado: p.pess_accumulated,
+    };
+    if (scenario === 'optimistic') return {
+      label: p.label,
+      Receita:  p.opt_income,
+      Despesa:  p.opt_expense,
+      Saldo:    p.optimistic,
+      Acumulado: p.opt_accumulated,
+    };
+    // realistic (default)
+    return {
+      label: p.label,
+      Receita:  p.income,
+      Despesa:  p.expense,
+      Saldo:    p.balance,
+      Acumulado: p.accumulated,
+    };
+  }) || [];
 
   const summaryCards = data ? [
-    { label:'Receita média/mês',   value:fmt(data.avg_income),   color:'var(--green)',  icon:'↑' },
-    { label:'Despesa média/mês',   value:fmt(data.avg_expense),  color:'var(--red)',    icon:'↓' },
-    { label:'Saldo projetado/mês', value:fmt(data.avg_balance),  color:data.avg_balance>=0?'var(--indigo)':'var(--red)', icon:'≈' },
-    { label:'Fixos mensais',       value:fmt(data.fixed_expense),color:'var(--amber)',  icon:'🔄' },
+    { label:'Receita média/mês',   value:fmt(data.avg_income),   color:'var(--green)'  },
+    { label:'Despesa média/mês',   value:fmt(data.avg_expense),  color:'var(--red)'    },
+    { label:'Saldo projetado/mês', value:fmt(data.avg_balance),  color:data.avg_balance>=0?'var(--indigo)':'var(--red)' },
+    { label:'Fixos mensais',       value:fmt(data.fixed_expense),color:'var(--amber)'  },
   ] : [];
+
+  const scenarioInfo = {
+    pessimistic: { label:'Pessimista', desc:'Receitas −15%, Despesas +15%', color:'var(--red)' },
+    realistic:   { label:'Realista',   desc:'Baseado na média histórica',   color:'var(--indigo)' },
+    optimistic:  { label:'Otimista',   desc:'Receitas +10%, Despesas −10%', color:'var(--green)' },
+  };
 
   return (
     <div style={{minHeight:'100vh',background:'var(--bg)'}}>
       <Navbar/>
       <main className="page-main" style={{maxWidth:900,margin:'0 auto',padding:'24px 16px 80px'}}>
 
-        {/* Header */}
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:24,flexWrap:'wrap',gap:12}}>
           <div>
             <h1 style={{fontSize:20,fontWeight:600,letterSpacing:'-0.03em'}}>Projeção financeira</h1>
-            <p style={{color:'var(--text3)',fontSize:13,marginTop:4}}>Estimativa baseada em {data ? `${data.months_analyzed} mês${data.months_analyzed !== 1 ? 'es' : ''} de dados` : 'sua média histórica'}</p>
+            <p style={{color:'var(--text3)',fontSize:13,marginTop:4}}>
+              {data ? `Baseado em ${data.months_analyzed} mês(es) de dados` : 'Estimativa baseada no histórico'}
+            </p>
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {/* Período */}
@@ -82,9 +104,9 @@ export default function ProjectionsPage() {
             {/* Cenário */}
             <select value={scenario} onChange={e=>setScenario(e.target.value)}
               style={{padding:'7px 12px',borderRadius:9,border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text)',fontSize:13,cursor:'pointer'}}>
-              <option value="pessimistic">📉 Pessimista (-15%)</option>
+              <option value="pessimistic">📉 Pessimista (−15%/+15%)</option>
               <option value="realistic">📊 Realista</option>
-              <option value="optimistic">📈 Otimista (+10%)</option>
+              <option value="optimistic">📈 Otimista (+10%/−10%)</option>
             </select>
           </div>
         </div>
@@ -95,12 +117,11 @@ export default function ProjectionsPage() {
               {[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:80}}/>)}
             </div>
             <div className="skeleton" style={{height:260}}/>
-            <div className="skeleton" style={{height:200}}/>
           </div>
         ) : !data ? (
           <div style={{textAlign:'center',padding:'60px 0',color:'var(--text3)'}}>
             <div style={{fontSize:40,marginBottom:12}}>📊</div>
-            <p style={{fontSize:14}}>Dados insuficientes. Registre transações por pelo menos 1 mês.</p>
+            <p>Dados insuficientes. Registre transações por pelo menos 1 mês.</p>
           </div>
         ) : (<>
 
@@ -114,19 +135,17 @@ export default function ProjectionsPage() {
             ))}
           </div>
 
-          {/* Aviso cenário */}
-          {scenario!=='realistic'&&(
-            <div style={{background:'var(--amber-dim,rgba(245,166,35,0.1))',border:'1px solid rgba(245,166,35,0.25)',borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:12,color:'var(--amber)'}}>
-              {scenario==='pessimistic'
-                ?'📉 Cenário pessimista: receitas 15% menores, despesas 15% maiores que a média'
-                :'📈 Cenário otimista: receitas 10% maiores, despesas 10% menores que a média'}
+          {/* Badge do cenário */}
+          {scenario !== 'realistic' && (
+            <div style={{background:`${scenarioInfo[scenario].color}15`,border:`1px solid ${scenarioInfo[scenario].color}44`,borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:12,color:scenarioInfo[scenario].color,display:'flex',alignItems:'center',gap:8}}>
+              <strong>{scenarioInfo[scenario].label}:</strong> {scenarioInfo[scenario].desc}
             </div>
           )}
 
-          {/* Gráfico de barras — receita vs despesa */}
+          {/* Gráfico receita vs despesa */}
           <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:14,padding:'20px 16px',marginBottom:14}}>
             <p style={{fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:16}}>
-              Receita vs Despesa projetada
+              Receita vs Despesa — {scenarioInfo[scenario].label}
             </p>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={chartData} barGap={4}>
@@ -135,16 +154,16 @@ export default function ProjectionsPage() {
                 <YAxis tickFormatter={fmtK} tick={{fill:'var(--text3)',fontSize:11}} axisLine={false} tickLine={false} width={56}/>
                 <Tooltip content={<CustomTooltip/>}/>
                 <Legend wrapperStyle={{fontSize:12,color:'var(--text2)'}}/>
-                <Bar dataKey="Receita"  fill="var(--green)" radius={[5,5,0,0]} maxBarSize={40}/>
-                <Bar dataKey="Despesa"  fill="var(--red)"   radius={[5,5,0,0]} maxBarSize={40}/>
+                <Bar dataKey="Receita" fill="var(--green)" radius={[5,5,0,0]} maxBarSize={40}/>
+                <Bar dataKey="Despesa" fill="var(--red)"   radius={[5,5,0,0]} maxBarSize={40}/>
               </BarChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Gráfico de área — saldo acumulado */}
+          {/* Gráfico saldo acumulado */}
           <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:14,padding:'20px 16px',marginBottom:14}}>
             <p style={{fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:16}}>
-              Evolução do saldo acumulado
+              Saldo acumulado — {scenarioInfo[scenario].label}
             </p>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={chartData}>
@@ -158,48 +177,43 @@ export default function ProjectionsPage() {
                 <XAxis dataKey="label" tick={{fill:'var(--text3)',fontSize:11}} axisLine={false} tickLine={false}/>
                 <YAxis tickFormatter={fmtK} tick={{fill:'var(--text3)',fontSize:11}} axisLine={false} tickLine={false} width={56}/>
                 <Tooltip content={<CustomTooltip/>}/>
-                <Area dataKey="Acumulado" stroke="var(--indigo)" strokeWidth={2} fill="url(#gradBalance)" name="Acumulado"/>
+                <Area dataKey="Acumulado" stroke="var(--indigo)" strokeWidth={2} fill="url(#gradBalance)"/>
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Tabela projetada mês a mês */}
+          {/* Tabela detalhada */}
           <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:14,overflow:'hidden',marginBottom:14}}>
             <div style={{padding:'14px 18px',borderBottom:'1px solid var(--border)'}}>
-              <p style={{fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em'}}>Detalhamento mensal</p>
+              <p style={{fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em'}}>Detalhamento mensal — {scenarioInfo[scenario].label}</p>
             </div>
             <div style={{overflowX:'auto'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
                 <thead>
                   <tr style={{background:'var(--bg3)'}}>
                     {['Mês','Receita proj.','Despesa proj.','Saldo mês','Acumulado'].map(h=>(
-                      <th key={h} style={{padding:'10px 16px',textAlign:'right',fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap',':first-child':{textAlign:'left'}}}>
-                        {h}
-                      </th>
+                      <th key={h} style={{padding:'10px 16px',textAlign:'right',fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',whiteSpace:'nowrap'}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {data.projection.map((p,i)=>{
-                    const bal = scenario==='pessimistic'?p.pessimistic:scenario==='optimistic'?p.optimistic:p.balance;
-                    return(
-                      <tr key={i} style={{borderTop:'1px solid var(--border)',transition:'background 0.15s'}}
-                        onMouseOver={e=>e.currentTarget.style.background='var(--bg3)'}
-                        onMouseOut={e=>e.currentTarget.style.background='transparent'}>
-                        <td style={{padding:'12px 16px',color:'var(--text)',fontWeight:500}}>{p.label}</td>
-                        <td style={{padding:'12px 16px',textAlign:'right',fontFamily:'var(--mono)',color:'var(--green)'}}>{fmt(p.income)}</td>
-                        <td style={{padding:'12px 16px',textAlign:'right',fontFamily:'var(--mono)',color:'var(--red)'}}>{fmt(p.expense)}</td>
-                        <td style={{padding:'12px 16px',textAlign:'right',fontFamily:'var(--mono)',color:bal>=0?'var(--indigo)':'var(--red)',fontWeight:600}}>{fmt(bal)}</td>
-                        <td style={{padding:'12px 16px',textAlign:'right',fontFamily:'var(--mono)',color:p.accumulated>=0?'var(--text)':'var(--red)'}}>{fmt(p.accumulated)}</td>
-                      </tr>
-                    );
-                  })}
+                  {chartData.map((p,i)=>(
+                    <tr key={i} style={{borderTop:'1px solid var(--border)'}}
+                      onMouseOver={e=>e.currentTarget.style.background='var(--bg3)'}
+                      onMouseOut={e=>e.currentTarget.style.background='transparent'}>
+                      <td style={{padding:'12px 16px',color:'var(--text)',fontWeight:500}}>{p.label}</td>
+                      <td style={{padding:'12px 16px',textAlign:'right',fontFamily:'var(--mono)',color:'var(--green)'}}>{fmt(p.Receita)}</td>
+                      <td style={{padding:'12px 16px',textAlign:'right',fontFamily:'var(--mono)',color:'var(--red)'}}>{fmt(p.Despesa)}</td>
+                      <td style={{padding:'12px 16px',textAlign:'right',fontFamily:'var(--mono)',color:p.Saldo>=0?'var(--indigo)':'var(--red)',fontWeight:600}}>{fmt(p.Saldo)}</td>
+                      <td style={{padding:'12px 16px',textAlign:'right',fontFamily:'var(--mono)',color:p.Acumulado>=0?'var(--text)':'var(--red)'}}>{fmt(p.Acumulado)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
 
-          {/* Top categorias de gasto */}
+          {/* Top categorias */}
           {data.by_category?.length>0&&(
             <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:14,padding:'18px 20px'}}>
               <p style={{fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:16}}>
@@ -215,7 +229,7 @@ export default function ProjectionsPage() {
                           <span style={{width:8,height:8,borderRadius:'50%',background:cat.color,display:'inline-block',flexShrink:0}}/>
                           <span style={{fontSize:13,color:'var(--text)'}}>{cat.name}</span>
                         </div>
-                        <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                        <div style={{display:'flex',gap:12}}>
                           <span style={{fontSize:11,color:'var(--text3)'}}>{pct}%</span>
                           <span style={{fontFamily:'var(--mono)',fontSize:13,fontWeight:500,color:'var(--red)'}}>{fmt(cat.avg_monthly)}</span>
                         </div>
@@ -228,11 +242,10 @@ export default function ProjectionsPage() {
                 })}
               </div>
               <p style={{fontSize:11,color:'var(--text3)',marginTop:14,lineHeight:1.5}}>
-                ⚠️ Projeção baseada na média dos últimos 3 meses + recorrentes ativas. Valores podem variar.
+                ⚠️ Projeção baseada na média dos últimos {data.months_analyzed} mês(es) + recorrentes ativas.
               </p>
             </div>
           )}
-
         </>)}
       </main>
     </div>

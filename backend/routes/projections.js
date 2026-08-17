@@ -16,8 +16,7 @@ router.get('/', async (req, res) => {
   const today    = new Date();
   const months   = Number(req.query.months) || 6;
 
-  // ── 1. Histórico: mês atual + últimos 2 meses (até 3 meses) ──────────
-  // BUG CORRIGIDO: antes começava em -1, pulando o mês atual
+  // Histórico: mês atual + últimos 2
   const histMonths = Array.from({ length: 3 }, (_, i) => {
     const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
     return { month: d.getMonth() + 1, year: d.getFullYear() };
@@ -29,24 +28,22 @@ router.get('/', async (req, res) => {
     const end   = new Date(year, month, 0).toISOString().split('T')[0];
     const { data } = await supabase.from('transactions')
       .select('amount,type,category_id,categories(name,color)')
-      .eq('user_id', req.user.id).gte('date', start).lte('date', end);
+      .eq('user_id', req.user.id).gte('date', start).lte('date', end)
+      .is('transfer_id', null);
     if (data?.length) histData.push({ month, year, transactions: data });
   }
 
-  // BUG CORRIGIDO: divide pelo número real de meses com dados, não sempre 3
-  const divisor = Math.max(1, histData.length);
-
+  const divisor    = Math.max(1, histData.length);
   const totalIncome = histData.reduce((s, m) =>
     s + m.transactions.filter(t=>t.type==='income').reduce((a,t)=>a+Number(t.amount),0), 0);
-  const avgIncome = totalIncome / divisor;
+  const avgIncome  = totalIncome / divisor;
 
-  // Média por categoria
   const catTotals = {};
   histData.forEach(m => {
     m.transactions.filter(t=>t.type==='expense').forEach(t => {
       const key = t.category_id || 'sem-categoria';
       if (!catTotals[key]) catTotals[key] = {
-        name:  t.categories?.name  || 'Sem categoria',
+        name: t.categories?.name || 'Sem categoria',
         color: t.categories?.color || '#6b7280',
         total: 0,
       };
@@ -55,69 +52,78 @@ router.get('/', async (req, res) => {
   });
 
   const avgByCategory = Object.entries(catTotals).map(([id, v]) => ({
-    category_id: id,
-    name:        v.name,
-    color:       v.color,
+    category_id: id, name: v.name, color: v.color,
     avg_monthly: Math.round(v.total / divisor * 100) / 100,
   })).sort((a, b) => b.avg_monthly - a.avg_monthly);
 
   const avgExpense = avgByCategory.reduce((s, c) => s + c.avg_monthly, 0);
 
-  // ── 2. Recorrentes ativas ─────────────────────────────────────────────
+  // Recorrentes
   const { data: recurrings } = await supabase.from('recurring_transactions')
     .select('amount,type,frequency').eq('user_id', req.user.id).eq('active', true);
-
   const fixedIncome   = (recurrings||[]).filter(r=>r.type==='income' &&r.frequency==='monthly').reduce((s,r)=>s+Number(r.amount),0);
   const fixedExpense  = (recurrings||[]).filter(r=>r.type==='expense'&&r.frequency==='monthly').reduce((s,r)=>s+Number(r.amount),0);
   const weeklyIncome  = (recurrings||[]).filter(r=>r.type==='income' &&r.frequency==='weekly').reduce((s,r)=>s+Number(r.amount)*4.33,0);
   const weeklyExpense = (recurrings||[]).filter(r=>r.type==='expense'&&r.frequency==='weekly').reduce((s,r)=>s+Number(r.amount)*4.33,0);
 
-  // ── 3. Saldo do mês corrente ──────────────────────────────────────────
+  // Saldo do mês corrente
   const currStart = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`;
   const currEnd   = new Date(today.getFullYear(), today.getMonth()+1, 0).toISOString().split('T')[0];
   const { data: currTxs } = await supabase.from('transactions')
-    .select('amount,type').eq('user_id', req.user.id).gte('date',currStart).lte('date',currEnd);
-  const currIncome  = (currTxs||[]).filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
-  const currExpense = (currTxs||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
-  const currBalance = currIncome - currExpense;
+    .select('amount,type').eq('user_id', req.user.id)
+    .gte('date',currStart).lte('date',currEnd).is('transfer_id',null);
+  const currBalance = (currTxs||[]).filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0)
+    - (currTxs||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
 
-  // ── 4. Valores projetados ─────────────────────────────────────────────
-  // Usa o maior entre: média histórica ou total de recorrentes fixas
   const projIncome  = Math.max(avgIncome, fixedIncome + weeklyIncome);
-  // Despesas: média histórica (já inclui fixas do passado) + semanais extra
   const projExpense = Math.max(avgExpense, fixedExpense + weeklyExpense);
 
-  // ── 5. Projeção mês a mês ─────────────────────────────────────────────
-  const projection  = [];
-  let accumulated   = currBalance;
+  // Projeção com 3 cenários de acumulado
+  const projection = [];
+  let accReal = currBalance, accPess = currBalance, accOpt = currBalance;
 
   for (let i = 1; i <= months; i++) {
-    const d       = new Date(today.getFullYear(), today.getMonth() + i, 1);
-    const label   = d.toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
-    const balance = projIncome - projExpense;
-    accumulated  += balance;
+    const d     = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    const label = d.toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
+
+    const incReal = projIncome,              expReal = projExpense;
+    const incPess = projIncome  * 0.85,      expPess = projExpense * 1.15;
+    const incOpt  = projIncome  * 1.10,      expOpt  = projExpense * 0.90;
+
+    const balReal = incReal - expReal;
+    const balPess = incPess - expPess;
+    const balOpt  = incOpt  - expOpt;
+
+    accReal += balReal; accPess += balPess; accOpt += balOpt;
 
     projection.push({
-      month:       d.getMonth() + 1,
-      year:        d.getFullYear(),
-      label,
-      income:      Math.round(projIncome  * 100) / 100,
-      expense:     Math.round(projExpense * 100) / 100,
-      balance:     Math.round(balance     * 100) / 100,
-      accumulated: Math.round(accumulated * 100) / 100,
-      pessimistic: Math.round((projIncome * 0.85 - projExpense * 1.15) * 100) / 100,
-      optimistic:  Math.round((projIncome * 1.10 - projExpense * 0.90) * 100) / 100,
+      month: d.getMonth()+1, year: d.getFullYear(), label,
+      // Realista
+      income:   Math.round(incReal * 100) / 100,
+      expense:  Math.round(expReal * 100) / 100,
+      balance:  Math.round(balReal * 100) / 100,
+      accumulated: Math.round(accReal * 100) / 100,
+      // Pessimista
+      pess_income:  Math.round(incPess * 100) / 100,
+      pess_expense: Math.round(expPess * 100) / 100,
+      pessimistic:  Math.round(balPess * 100) / 100,
+      pess_accumulated: Math.round(accPess * 100) / 100,
+      // Otimista
+      opt_income:  Math.round(incOpt * 100) / 100,
+      opt_expense: Math.round(expOpt * 100) / 100,
+      optimistic:  Math.round(balOpt * 100) / 100,
+      opt_accumulated: Math.round(accOpt * 100) / 100,
     });
   }
 
   res.json({
     months_analyzed: divisor,
-    avg_income:      Math.round(avgIncome  * 100) / 100,
-    avg_expense:     Math.round(avgExpense * 100) / 100,
-    avg_balance:     Math.round((avgIncome - avgExpense) * 100) / 100,
-    fixed_income:    Math.round((fixedIncome  + weeklyIncome)  * 100) / 100,
-    fixed_expense:   Math.round((fixedExpense + weeklyExpense) * 100) / 100,
-    by_category:     avgByCategory,
+    avg_income:    Math.round(avgIncome  * 100) / 100,
+    avg_expense:   Math.round(avgExpense * 100) / 100,
+    avg_balance:   Math.round((avgIncome - avgExpense) * 100) / 100,
+    fixed_income:  Math.round((fixedIncome  + weeklyIncome)  * 100) / 100,
+    fixed_expense: Math.round((fixedExpense + weeklyExpense) * 100) / 100,
+    by_category:   avgByCategory,
     projection,
   });
 });
