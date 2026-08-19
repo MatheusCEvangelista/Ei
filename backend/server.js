@@ -22,7 +22,7 @@ const leonRoutes         = require('./routes/leon');
 const importRoutes       = require('./routes/import');
 const calendarRoutes     = require('./routes/calendar');
 const networthRoutes     = require('./routes/networth');
-
+const annualRoutes = require('./routes/annual');
 const app = express();
 
 const allowedOrigins = [
@@ -64,7 +64,7 @@ app.use('/api/leon',          leonRoutes);
 app.use('/api/import',        importRoutes);
 app.use('/api/calendar',      calendarRoutes);
 app.use('/api/networth',      networthRoutes);
-
+app.use('/api/annual', annualRoutes);
 app.locals.createNotification = notificationRoutes.createNotification;
 
 app.use((err, req, res, next) => {

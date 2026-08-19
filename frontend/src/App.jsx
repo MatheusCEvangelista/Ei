@@ -19,6 +19,7 @@ import LeonWidget                from './components/LeonWidget';
 import CalendarPage              from './pages/CalendarPage';
 import NetWorthPage from './pages/NetWorthPage';
 import OnboardingGuard from './components/OnboardingGuard';
+import AnnualPage from './pages/AnnualPage';
 // Widgets que só aparecem para usuários autenticados
 function AuthWidgets() {
   const { user } = useAuth();
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/report"                  element={<PrivateRoute><ReportPage/></PrivateRoute>} />
           <Route path="/calendar" element={<PrivateRoute><CalendarPage/></PrivateRoute>} />
           <Route path="/networth" element={<PrivateRoute><NetWorthPage/></PrivateRoute>} />
+          <Route path="/annual" element={<PrivateRoute><AnnualPage/></PrivateRoute>} />
           <Route path="*"                     element={<Navigate to="/" replace />} />
         </Routes>
         <AuthWidgets/>
