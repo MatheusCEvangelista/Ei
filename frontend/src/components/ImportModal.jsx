@@ -242,14 +242,7 @@ function parseItauPDF(text) {
 }
 
 // ─── Config dos bancos ────────────────────────────────────────────────────
-const BANKS = [
-  { id:'mp-csv',  label:'Mercado Pago', icon:'💳', format:'CSV', accept:'.csv,text/csv',       steps:['Abra o app do Mercado Pago','Vá em Atividade → Extrato','Toque em "Exportar" → CSV','Selecione o período e baixe'] },
-  { id:'mp-pdf',  label:'Mercado Pago', icon:'💳', format:'PDF', accept:'.pdf,application/pdf', badge:'Novo', steps:['Acesse mercadopago.com.br','Vá em Conta → Extrato de conta','Clique em "Baixar PDF"','Selecione o período'] },
-  { id:'pluxee',  label:'Pluxee',       icon:'🎫', format:'PDF', accept:'.pdf,application/pdf', badge:'Novo', steps:['Acesse o app ou site da Pluxee','Vá em Extrato → Multibenefícios','Exporte o extrato em PDF','Selecione o período'] },
-  { id:'sicoob',      label:'Sicoob',         icon:'🟢', format:'PDF', accept:'.pdf,application/pdf', steps:['Acesse o internet banking do Sicoob','Vá em Extrato → Conta Corrente','Selecione o período desejado','Clique em "Emitir" e salve o PDF'] },
-  { id:'sicoob-card', label:'Sicoob Cartão',  icon:'💳', format:'PDF', accept:'.pdf,application/pdf', badge:'Novo', steps:['Acesse o internet banking do Sicoob','Vá em Cartões → Fatura do Cartão','Selecione o mês desejado','Clique em "Imprimir/Salvar" o PDF'] },
-  { id:'itau',    label:'Itaú',         icon:'🏦', format:'PDF', accept:'.pdf,application/pdf', steps:['Acesse o app ou internet banking Itaú','Vá em Conta corrente → Extrato','Selecione o período desejado','Clique em "Exportar" → PDF'] },
-];
+
 
 const lbl = { display:'block', fontSize:12, color:'var(--text2)', fontWeight:500, marginBottom:6, letterSpacing:'0.02em' };
 const fmt  = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
@@ -273,7 +266,6 @@ export default function ImportModal({ onClose, onSave }) {
     setError(''); setLoadingFile(true);
     try {
       // 1. Parse do arquivo
-      let parsed;
       const parsed = await parseFile(bankType, file);
 
       // 2. Checa duplicatas e auto-categoriza em paralelo
