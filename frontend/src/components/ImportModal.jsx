@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import api from '../lib/api';
+import { parseFile, BANKS } from './bankParsers';
 
 // ─── Parsers (mantidos iguais aos anteriores) ─────────────────────────────
 function parseMercadoPagoCSV(text) {
@@ -273,15 +274,7 @@ export default function ImportModal({ onClose, onSave }) {
     try {
       // 1. Parse do arquivo
       let parsed;
-      switch (bankType) {
-        case 'mp-csv': parsed = parseMercadoPagoCSV(await file.text()); break;
-        case 'mp-pdf': parsed = parseMercadoPagoPDF(await extractPDFText(file)); break;
-        case 'pluxee': parsed = parsePluxeePDF(await extractPDFText(file)); break;
-        case 'sicoob':      parsed = parseSicoobPDF(await extractPDFText(file));     break;
-        case 'sicoob-card': parsed = parseSicoobCardPDF(await extractPDFText(file)); break;
-        case 'itau':   parsed = parseItauPDF(await extractPDFText(file)); break;
-        default: throw new Error('Selecione um banco antes de importar.');
-      }
+      const parsed = await parseFile(bankType, file);
 
       // 2. Checa duplicatas e auto-categoriza em paralelo
       const [dupRes, catRes, catsRes] = await Promise.all([
