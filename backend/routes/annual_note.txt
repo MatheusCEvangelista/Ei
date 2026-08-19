@@ -1,0 +1,4 @@
+Adicionar no server.js:
+
+const annualRoutes = require('./routes/annual');
+app.use('/api/annual', annualRoutes);

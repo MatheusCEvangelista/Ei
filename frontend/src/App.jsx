@@ -18,14 +18,17 @@ import ReportPage                from './pages/ReportPage';
 import LeonWidget                from './components/LeonWidget';
 import CalendarPage              from './pages/CalendarPage';
 import NetWorthPage from './pages/NetWorthPage';
+import OnboardingGuard from './components/OnboardingGuard';
 // Widgets que só aparecem para usuários autenticados
 function AuthWidgets() {
   const { user } = useAuth();
   if (!user) return null;
   return (
     <>
+    <OnboardingGuard>
       <PWAInstallPrompt/>
       <LeonWidget/>
+      </OnboardingGuard>
     </>
   );
 }
