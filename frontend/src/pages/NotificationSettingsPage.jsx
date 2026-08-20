@@ -1,173 +1,118 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../lib/api';
 import Navbar from '../components/Navbar';
-
-function Toggle({ checked, onChange, label, description }) {
-  return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 0',borderBottom:'1px solid var(--border)'}}>
-      <div>
-        <p style={{fontSize:14,fontWeight:500,color:'var(--text)'}}>{label}</p>
-        {description&&<p style={{fontSize:12,color:'var(--text3)',marginTop:3}}>{description}</p>}
-      </div>
-      <button type="button" onClick={()=>onChange(!checked)} style={{width:44,height:24,borderRadius:99,border:'none',cursor:'pointer',background:checked?'var(--indigo)':'var(--bg3)',transition:'background 0.2s',position:'relative',flexShrink:0}}>
-        <span style={{position:'absolute',top:3,width:18,height:18,borderRadius:'50%',background:'#fff',transition:'left 0.2s',left:checked?23:3,boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
-      </button>
-    </div>
-  );
-}
+import api from '../lib/api';
 
 export default function NotificationSettingsPage() {
-  const navigate = useNavigate();
-  const [prefs,   setPrefs]   = useState({ budget_exceeded:true, recurring_due:true, goal_completed:true, push_enabled:false });
-  const [loading, setLoading] = useState(true);
-  const [saving,  setSaving]  = useState(false);
-  const [pushStatus, setPushStatus] = useState('idle'); // 'idle'|'requesting'|'granted'|'denied'
+  const [sending,  setSending]  = useState(false);
+  const [result,   setResult]   = useState(null); // { ok, msg }
+  const [prefs,    setPrefs]    = useState({ budget_alert:true, goal_complete:true, monthly_report:true });
+  const [loadPrefs,setLoadPrefs]= useState(true);
 
   useEffect(()=>{
-    api.get('/api/notifications/preferences')
-      .then(r=>{ setPrefs(r.data); setLoading(false); })
-      .catch(()=>setLoading(false));
-
-    // Verifica permissão push atual
-    if('Notification' in window) {
-      if(Notification.permission==='granted') setPushStatus('granted');
-      else if(Notification.permission==='denied') setPushStatus('denied');
-    }
+    api.get('/api/notifications/preferences').then(r=>{
+      if(r.data) setPrefs(p=>({...p,...r.data}));
+    }).catch(()=>{}).finally(()=>setLoadPrefs(false));
   },[]);
 
-  async function save(newPrefs) {
-    setSaving(true);
+  async function sendTestEmail() {
+    setSending(true); setResult(null);
     try {
-      await api.put('/api/notifications/preferences', newPrefs);
-      setPrefs(newPrefs);
-    } catch(_){}
-    setSaving(false);
-  }
-
-  async function enablePush() {
-    if(!('Notification' in window)||!('serviceWorker' in navigator)) {
-      alert('Seu navegador não suporta notificações push.'); return;
+      const { data } = await api.post('/api/reports/send-monthly');
+      setResult({ ok:true, msg:`✅ E-mail enviado para ${data.email}! Verifique sua caixa de entrada.` });
+    } catch(err) {
+      setResult({ ok:false, msg:`❌ ${err.response?.data?.error || 'Erro ao enviar e-mail.'}` });
     }
-    setPushStatus('requesting');
-    try {
-      const permission = await Notification.requestPermission();
-      if(permission!=='granted'){ setPushStatus('denied'); return; }
-
-      const reg   = await navigator.serviceWorker.ready;
-      const { data: vapidData } = await api.get('/api/notifications/vapid-public-key');
-      if(!vapidData.key){ alert('Chave VAPID não configurada no servidor.'); return; }
-
-      // Converte chave VAPID
-      const raw    = atob(vapidData.key.replace(/-/g,'+').replace(/_/g,'/'));
-      const bytes  = new Uint8Array(raw.length);
-      for(let i=0;i<raw.length;i++) bytes[i]=raw.charCodeAt(i);
-
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: bytes,
-      });
-
-      await api.post('/api/notifications/subscribe', { subscription });
-      setPushStatus('granted');
-      await save({...prefs, push_enabled:true});
-    } catch(err){
-      console.error(err);
-      setPushStatus('idle');
-    }
+    setSending(false);
   }
 
-  async function disablePush() {
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if(sub) await sub.unsubscribe();
-      await api.delete('/api/notifications/subscribe');
-    } catch(_){}
-    await save({...prefs, push_enabled:false});
-    setPushStatus('idle');
+  async function savePref(key, value) {
+    setPrefs(p=>({...p,[key]:value}));
+    try { await api.put('/api/notifications/preferences', { [key]:value }); } catch {}
   }
 
-  function update(key, val) {
-    const next = {...prefs, [key]:val};
-    save(next);
-  }
+  const toggleS = { display:'flex',alignItems:'center',justifyContent:'space-between',padding:'14px 16px',background:'var(--bg3)',borderRadius:10,border:'1px solid var(--border)',cursor:'pointer' };
 
-  if(loading) return(
-    <div style={{minHeight:'100vh',background:'var(--bg)'}}>
-      <Navbar/>
-      <main style={{maxWidth:600,margin:'0 auto',padding:'24px 16px'}}>
-        {[1,2,3,4].map(i=><div key={i} className="skeleton" style={{height:60,borderRadius:12,marginBottom:10}}/>)}
-      </main>
-    </div>
-  );
-
-  return(
+  return (
     <div style={{minHeight:'100vh',background:'var(--bg)'}}>
       <Navbar/>
       <main className="page-main" style={{maxWidth:600,margin:'0 auto',padding:'24px 16px 80px'}}>
-        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:28}}>
-          <button onClick={()=>navigate(-1)} style={{background:'var(--bg3)',border:'1px solid var(--border)',borderRadius:8,width:32,height:32,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text2)',fontSize:16}}>←</button>
-          <div>
-            <h1 style={{fontSize:20,fontWeight:600,letterSpacing:'-0.03em'}}>Notificações</h1>
-            <p style={{color:'var(--text3)',fontSize:13,marginTop:2}}>Escolha o que você quer ser avisado</p>
-          </div>
+
+        <div style={{marginBottom:28}}>
+          <h1 style={{fontSize:20,fontWeight:600,letterSpacing:'-0.03em'}}>Notificações</h1>
+          <p style={{color:'var(--text3)',fontSize:13,marginTop:4}}>Gerencie alertas e relatórios automáticos</p>
         </div>
 
-        {/* Push */}
-        <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:14,padding:'18px 20px',marginBottom:16}}>
-          <p style={{fontSize:12,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600,marginBottom:16}}>Push no celular</p>
-
-          {pushStatus==='denied' ? (
-            <div style={{background:'var(--red-dim)',border:'1px solid rgba(240,94,110,0.2)',borderRadius:10,padding:'14px 16px'}}>
-              <p style={{fontSize:13,color:'var(--red)',fontWeight:500,marginBottom:4}}>🚫 Notificações bloqueadas</p>
-              <p style={{fontSize:12,color:'var(--text3)'}}>Você negou a permissão. Para reativar, vá nas configurações do navegador e permita notificações para este site.</p>
-            </div>
-          ) : prefs.push_enabled && pushStatus==='granted' ? (
-            <div>
-              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-                <span style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',display:'inline-block'}}/>
-                <p style={{fontSize:13,color:'var(--green)',fontWeight:500}}>Push ativo neste dispositivo</p>
+        {/* Alertas */}
+        <p style={{fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10}}>Alertas in-app</p>
+        <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:24}}>
+          {[
+            { key:'budget_alert',   label:'Teto de gasto atingido',   desc:'Avisa quando uma categoria ultrapassa o limite' },
+            { key:'goal_complete',  label:'Meta concluída',            desc:'Celebra quando você atinge uma meta de economia' },
+          ].map(p=>(
+            <label key={p.key} style={toggleS}>
+              <div>
+                <p style={{fontSize:13,fontWeight:500,color:'var(--text)',marginBottom:2}}>{p.label}</p>
+                <p style={{fontSize:11,color:'var(--text3)'}}>{p.desc}</p>
               </div>
-              <button onClick={disablePush} style={{fontSize:13,color:'var(--red)',background:'var(--red-dim)',border:'none',borderRadius:8,padding:'8px 16px',cursor:'pointer',fontFamily:'var(--font)'}}>
-                Desativar push
-              </button>
-            </div>
-          ) : (
+              <div style={{position:'relative',width:44,height:24,flexShrink:0}} onClick={()=>savePref(p.key,!prefs[p.key])}>
+                <div style={{width:44,height:24,borderRadius:12,background:prefs[p.key]?'var(--indigo)':'var(--bg)',border:'1px solid var(--border)',transition:'background 0.2s'}}/>
+                <div style={{position:'absolute',top:3,left:prefs[p.key]?22:3,width:18,height:18,borderRadius:'50%',background:'#fff',transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}}/>
+              </div>
+            </label>
+          ))}
+        </div>
+
+        {/* Relatório mensal por e-mail */}
+        <p style={{fontSize:11,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:10}}>Relatório mensal por e-mail</p>
+        <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:14,padding:'20px',marginBottom:12}}>
+          <div style={{display:'flex',alignItems:'flex-start',gap:14,marginBottom:16}}>
+            <div style={{width:42,height:42,borderRadius:12,background:'var(--indigo-dim)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>📧</div>
             <div>
-              <p style={{fontSize:13,color:'var(--text2)',marginBottom:14,lineHeight:1.5}}>Receba alertas mesmo com o app fechado. Funciona melhor quando instalado como PWA.</p>
-              <button onClick={enablePush} disabled={pushStatus==='requesting'}
-                style={{fontSize:13,fontWeight:600,color:'#fff',background:pushStatus==='requesting'?'var(--bg3)':'linear-gradient(135deg,var(--indigo),#a78bfa)',border:'none',borderRadius:9,padding:'10px 20px',cursor:'pointer',fontFamily:'var(--font)'}}>
-                {pushStatus==='requesting'?'Aguardando permissão...':'🔔 Ativar notificações push'}
-              </button>
+              <p style={{fontSize:14,fontWeight:600,color:'var(--text)',marginBottom:4}}>Resumo mensal automático</p>
+              <p style={{fontSize:12,color:'var(--text3)',lineHeight:1.5}}>
+                Receba um e-mail no início de cada mês com um resumo completo: receitas, despesas, maiores gastos, status dos tetos e progresso das metas.
+              </p>
+            </div>
+          </div>
+
+          <div style={{background:'var(--bg3)',borderRadius:10,padding:'12px 14px',marginBottom:16,fontSize:12,color:'var(--text2)',lineHeight:1.6}}>
+            <strong>🔧 Como configurar o envio automático (gratuito):</strong><br/>
+            1. Crie uma conta no <a href="https://uptimerobot.com" target="_blank" style={{color:'var(--indigo)'}}>UptimeRobot</a><br/>
+            2. Crie um monitor do tipo <strong>HTTP(s)</strong><br/>
+            3. URL: <code style={{background:'var(--bg2)',padding:'1px 5px',borderRadius:4}}>{`${window.location.origin.replace('3000','3001')}/api/reports/send-monthly`}</code><br/>
+            4. Método: <strong>POST</strong> | Intervalo: <strong>1 dia</strong><br/>
+            5. O relatório será enviado todo dia 1 do mês quando o cron bater
+          </div>
+
+          <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+            <button onClick={sendTestEmail} disabled={sending}
+              style={{flex:1,padding:'12px',borderRadius:10,border:'none',background:sending?'var(--bg3)':'linear-gradient(135deg,var(--indigo),#a78bfa)',color:sending?'var(--text3)':'#fff',fontSize:13,fontWeight:600,cursor:sending?'wait':'pointer',fontFamily:'var(--font)',transition:'all 0.2s'}}>
+              {sending?'Enviando...':'📧 Enviar relatório agora (teste)'}
+            </button>
+            <a href="/api/reports/preview" target="_blank"
+              style={{padding:'12px 16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text2)',fontSize:13,fontWeight:500,textDecoration:'none',display:'flex',alignItems:'center',whiteSpace:'nowrap'}}>
+              👁️ Preview
+            </a>
+          </div>
+
+          {result && (
+            <div style={{marginTop:12,padding:'12px 14px',borderRadius:9,background:result.ok?'var(--green-dim)':'var(--red-dim)',border:`1px solid ${result.ok?'rgba(34,197,94,0.2)':'rgba(239,68,68,0.2)'}`,fontSize:13,color:result.ok?'var(--green)':'var(--red)'}}>
+              {result.msg}
             </div>
           )}
         </div>
 
-        {/* Eventos */}
-        <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:14,padding:'18px 20px'}}>
-          <p style={{fontSize:12,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:600,marginBottom:4}}>O que me avisar</p>
-          <Toggle
-            checked={prefs.budget_exceeded}
-            onChange={v=>update('budget_exceeded',v)}
-            label="🔴 Teto de gasto atingido"
-            description="Quando uma categoria ultrapassar o limite definido"
-          />
-          <Toggle
-            checked={prefs.recurring_due}
-            onChange={v=>update('recurring_due',v)}
-            label="🔄 Recorrentes pendentes"
-            description="Quando houver transações recorrentes não geradas no mês"
-          />
-          <Toggle
-            checked={prefs.goal_completed}
-            onChange={v=>update('goal_completed',v)}
-            label="🎯 Meta de economia concluída"
-            description="Quando você atingir 100% de uma meta"
-          />
+        {/* Vars de ambiente necessárias */}
+        <div style={{background:'rgba(245,158,11,0.08)',border:'1px solid rgba(245,158,11,0.25)',borderRadius:10,padding:'14px 16px',fontSize:12,color:'var(--text2)',lineHeight:1.6}}>
+          <strong style={{color:'var(--amber)'}}>⚙️ Variáveis necessárias no Render:</strong><br/>
+          <code style={{display:'block',marginTop:6,fontFamily:'monospace',fontSize:11,color:'var(--text)'}}>
+            RESEND_API_KEY=re_xxxxxxxxxxxx<br/>
+            RESEND_FROM=Leon &lt;noreply@seudominio.com&gt;
+          </code>
+          <p style={{marginTop:8,fontSize:11,color:'var(--text3)'}}>
+            Sem domínio próprio? Use <code>onboarding@resend.dev</code> para testes (só envia para e-mails verificados no Resend).
+          </p>
         </div>
-
-        {saving&&<p style={{fontSize:12,color:'var(--text3)',textAlign:'center',marginTop:12}}>Salvando...</p>}
       </main>
     </div>
   );
