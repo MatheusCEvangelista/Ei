@@ -126,11 +126,14 @@ function ContributeModal({ goal, onSave, onClose }) {
   const suggested = goal.monthly_target ? Math.min(goal.monthly_target, goal.remaining) : goal.remaining;
 
   async function handleSave(e) {
-    e.preventDefault(); setSaving(true);
+    e.preventDefault(); setSaving(true); setError('');
     try {
       await api.patch(`/api/goals/${goal.id}/contribute`, { amount: parseFloat(amount) });
       onSave();
-    } catch {}
+    } catch(err) {
+      console.error("Erro no aporte:", err);
+      setError(err.response?.data?.error || 'Erro ao salvar aporte. Verifique o console.');
+    }
     setSaving(false);
   }
 
