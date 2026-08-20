@@ -29,16 +29,13 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:4173',
-  (process.env.FRONTEND_URL || '').replace(/\/$/, ''),
-].filter(Boolean);
+  'https://ei-ten.vercel.app',
+];
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    const normalized = origin.split('/').slice(0, 3).join('/');
-    if (allowedOrigins.includes(normalized)) return callback(null, true);
-    callback(new Error(`CORS bloqueado: ${origin}`));
-  },
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
 
