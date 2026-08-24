@@ -37,12 +37,11 @@ router.get('/', async (req, res) => {
   res.json(enriched);
 });
 
-// Evolução da carteira — usa !inner para ignorar entries de investimentos deletados
+// Evolução — !inner join garante que só retorna entries de investimentos existentes
 router.get('/evolution', async (req, res) => {
   const supabase = db(req.token);
   const months   = Number(req.query.months) || 12;
 
-  // !inner join garante que só retorna entries de investimentos que ainda existem
   const { data: entries, error } = await supabase
     .from('investment_entries')
     .select('*, investments!inner(id,name,type,rate,rate_period,initial_amount)')
@@ -50,7 +49,7 @@ router.get('/evolution', async (req, res) => {
     .order('date', { ascending: true });
 
   if (error) return res.status(400).json({ error: error.message });
-  if (!entries?.length) return res.json({ points: [], total_invested: 0, total_estimated: 0 });
+  if (!entries?.length) return res.json({ points:[], total_invested:0, total_estimated:0, gain:0, gain_pct:0 });
 
   const today  = new Date();
   const points = [];
@@ -58,14 +57,13 @@ router.get('/evolution', async (req, res) => {
   for (let i = months - 1; i >= 0; i--) {
     const pointDate = new Date(today.getFullYear(), today.getMonth() - i, 1);
     const pointStr  = pointDate.toISOString().split('T')[0];
+    const relevant  = entries.filter(e => e.date <= pointStr);
 
-    const relevant = entries.filter(e => e.date <= pointStr);
     let invested = 0, fixedValue = 0, variableInvested = 0;
-
     relevant.forEach(e => {
       const cost = Number(e.quantity) * Number(e.price);
-      invested += cost;
-      const inv = e.investments;
+      invested  += cost;
+      const inv  = e.investments;
       if (inv && ['fixed_income','treasury'].includes(inv.type) && inv.rate) {
         fixedValue += calcFixedIncome(cost, inv.rate, inv.rate_period, e.date, pointStr);
       } else {
@@ -73,9 +71,8 @@ router.get('/evolution', async (req, res) => {
       }
     });
 
-    const label = pointDate.toLocaleString('pt-BR', { month: 'short', year: 'numeric' });
     points.push({
-      label,
+      label:     pointDate.toLocaleString('pt-BR',{month:'short',year:'numeric'}),
       date:      pointStr,
       invested:  Math.round(invested * 100) / 100,
       estimated: Math.round((fixedValue + variableInvested) * 100) / 100,
@@ -93,7 +90,7 @@ router.get('/evolution', async (req, res) => {
   });
 });
 
-// Criar
+// Criar investimento
 router.post('/', async (req, res) => {
   const { name, ticker, type, rate, rate_period, maturity_date, initial_amount } = req.body;
   if (!name || !type) return res.status(400).json({ error: 'Nome e tipo são obrigatórios' });
@@ -105,8 +102,8 @@ router.post('/', async (req, res) => {
   if (error) return res.status(400).json({ error: error.message });
   if (['fixed_income','treasury'].includes(type) && initial_amount) {
     const today = new Date().toISOString().split('T')[0];
-    await supabase.from('investment_entries').insert({ investment_id: data.id, user_id: req.user.id, quantity: 1, price: initial_amount, date: today });
-    await supabase.from('investments').update({ quantity: 1, avg_price: initial_amount }).eq('id', data.id);
+    await supabase.from('investment_entries').insert({ investment_id:data.id, user_id:req.user.id, quantity:1, price:initial_amount, date:today });
+    await supabase.from('investments').update({ quantity:1, avg_price:initial_amount }).eq('id',data.id);
   }
   res.status(201).json(data);
 });
@@ -115,16 +112,18 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const { name, ticker, type, rate, rate_period, maturity_date, initial_amount } = req.body;
   const { data, error } = await db(req.token).from('investments')
-    .update({ name, ticker: ticker?.toUpperCase()||null, type, rate, rate_period, maturity_date: maturity_date||null, initial_amount })
+    .update({ name, ticker:ticker?.toUpperCase()||null, type, rate, rate_period, maturity_date:maturity_date||null, initial_amount })
     .eq('id', req.params.id).eq('user_id', req.user.id).select().single();
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
 
-// Excluir — cascade deleta os entries automaticamente via Supabase
+// Excluir
 router.delete('/:id', async (req, res) => {
-  const { error } = await db(req.token).from('investments').delete()
-    .eq('id', req.params.id).eq('user_id', req.user.id);
+  const supabase = db(req.token);
+  // Primeiro deleta entries órfãos manualmente (caso não tenha cascade)
+  await supabase.from('investment_entries').delete().eq('investment_id', req.params.id).eq('user_id', req.user.id);
+  const { error } = await supabase.from('investments').delete().eq('id', req.params.id).eq('user_id', req.user.id);
   if (error) return res.status(400).json({ error: error.message });
   res.json({ message: 'ok' });
 });
@@ -135,24 +134,24 @@ router.post('/:id/entries', async (req, res) => {
   if (!quantity || !price || !date) return res.status(400).json({ error: 'Dados obrigatórios' });
   const supabase = db(req.token);
   const { data: entry, error } = await supabase.from('investment_entries')
-    .insert({ investment_id: req.params.id, user_id: req.user.id, quantity, price, date }).select().single();
+    .insert({ investment_id:req.params.id, user_id:req.user.id, quantity, price, date }).select().single();
   if (error) return res.status(400).json({ error: error.message });
-  const { data: entries } = await supabase.from('investment_entries').select('quantity,price').eq('investment_id', req.params.id);
+  const { data: entries } = await supabase.from('investment_entries').select('quantity,price').eq('investment_id',req.params.id);
   const totalQty = entries.reduce((s,e)=>s+Number(e.quantity),0);
   const avgPrice = totalQty>0 ? entries.reduce((s,e)=>s+Number(e.quantity)*Number(e.price),0)/totalQty : 0;
-  await supabase.from('investments').update({ quantity: totalQty, avg_price: avgPrice }).eq('id', req.params.id);
+  await supabase.from('investments').update({ quantity:totalQty, avg_price:avgPrice }).eq('id',req.params.id);
   res.status(201).json(entry);
 });
 
 // Excluir aporte
 router.delete('/:id/entries/:entryId', async (req, res) => {
   const supabase = db(req.token);
-  await supabase.from('investment_entries').delete().eq('id', req.params.entryId).eq('user_id', req.user.id);
-  const { data: entries } = await supabase.from('investment_entries').select('quantity,price').eq('investment_id', req.params.id);
+  await supabase.from('investment_entries').delete().eq('id',req.params.entryId).eq('user_id',req.user.id);
+  const { data: entries } = await supabase.from('investment_entries').select('quantity,price').eq('investment_id',req.params.id);
   const totalQty = (entries||[]).reduce((s,e)=>s+Number(e.quantity),0);
   const avgPrice = totalQty>0 ? entries.reduce((s,e)=>s+Number(e.quantity)*Number(e.price),0)/totalQty : 0;
-  await supabase.from('investments').update({ quantity: totalQty, avg_price: avgPrice }).eq('id', req.params.id);
-  res.json({ message: 'ok' });
+  await supabase.from('investments').update({ quantity:totalQty, avg_price:avgPrice }).eq('id',req.params.id);
+  res.json({ message:'ok' });
 });
 
 module.exports = router;
