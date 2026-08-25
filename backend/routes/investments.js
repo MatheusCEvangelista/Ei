@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
   res.json(enriched);
 });
 
-// Evolução — !inner join garante que só retorna entries de investimentos existentes
+// Evolução — !inner join para ignorar entries órfãos
 router.get('/evolution', async (req, res) => {
   const supabase = db(req.token);
   const months   = Number(req.query.months) || 12;
@@ -102,7 +102,10 @@ router.post('/', async (req, res) => {
   if (error) return res.status(400).json({ error: error.message });
   if (['fixed_income','treasury'].includes(type) && initial_amount) {
     const today = new Date().toISOString().split('T')[0];
-    await supabase.from('investment_entries').insert({ investment_id:data.id, user_id:req.user.id, quantity:1, price:initial_amount, date:today });
+    await supabase.from('investment_entries').insert({
+      investment_id: data.id, user_id: req.user.id,
+      quantity: 1, price: initial_amount, date: today,
+    });
     await supabase.from('investments').update({ quantity:1, avg_price:initial_amount }).eq('id',data.id);
   }
   res.status(201).json(data);
@@ -118,40 +121,86 @@ router.put('/:id', async (req, res) => {
   res.json(data);
 });
 
-// Excluir
+// Excluir — remove entries primeiro
 router.delete('/:id', async (req, res) => {
   const supabase = db(req.token);
-  // Primeiro deleta entries órfãos manualmente (caso não tenha cascade)
-  await supabase.from('investment_entries').delete().eq('investment_id', req.params.id).eq('user_id', req.user.id);
-  const { error } = await supabase.from('investments').delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  await supabase.from('investment_entries').delete()
+    .eq('investment_id', req.params.id).eq('user_id', req.user.id);
+  const { error } = await supabase.from('investments').delete()
+    .eq('id', req.params.id).eq('user_id', req.user.id);
   if (error) return res.status(400).json({ error: error.message });
   res.json({ message: 'ok' });
 });
 
-// Adicionar aporte
+// ── Adicionar aporte com vinculação de conta ──────────────────────────────
 router.post('/:id/entries', async (req, res) => {
-  const { quantity, price, date } = req.body;
-  if (!quantity || !price || !date) return res.status(400).json({ error: 'Dados obrigatórios' });
-  const supabase = db(req.token);
-  const { data: entry, error } = await supabase.from('investment_entries')
-    .insert({ investment_id:req.params.id, user_id:req.user.id, quantity, price, date }).select().single();
+  const { quantity, price, date, account_id } = req.body;
+  if (!quantity || !price || !date)
+    return res.status(400).json({ error: 'Quantidade, preço e data são obrigatórios' });
+
+  const supabase  = db(req.token);
+  const totalCost = Number(quantity) * Number(price);
+
+  // Cria o aporte
+  const { data: entry, error } = await supabase.from('investment_entries').insert({
+    investment_id: req.params.id,
+    user_id:       req.user.id,
+    quantity, price, date,
+    account_id: account_id || null,
+  }).select().single();
+
   if (error) return res.status(400).json({ error: error.message });
-  const { data: entries } = await supabase.from('investment_entries').select('quantity,price').eq('investment_id',req.params.id);
-  const totalQty = entries.reduce((s,e)=>s+Number(e.quantity),0);
-  const avgPrice = totalQty>0 ? entries.reduce((s,e)=>s+Number(e.quantity)*Number(e.price),0)/totalQty : 0;
-  await supabase.from('investments').update({ quantity:totalQty, avg_price:avgPrice }).eq('id',req.params.id);
-  res.status(201).json(entry);
+
+  // Atualiza preço médio e quantidade
+  const { data: allEntries } = await supabase.from('investment_entries')
+    .select('quantity,price').eq('investment_id', req.params.id);
+  const totalQty = allEntries.reduce((s,e)=>s+Number(e.quantity),0);
+  const avgPrice = totalQty > 0
+    ? allEntries.reduce((s,e)=>s+Number(e.quantity)*Number(e.price),0)/totalQty : 0;
+  await supabase.from('investments')
+    .update({ quantity: totalQty, avg_price: avgPrice }).eq('id', req.params.id);
+
+  // Se conta vinculada, cria transação de saída na conta
+  let linkedTransaction = null;
+  if (account_id) {
+    const { data: inv } = await supabase.from('investments')
+      .select('name').eq('id', req.params.id).single();
+
+    // Busca categoria "Investimentos" para classificar a transação
+    const { data: cat } = await supabase.from('categories')
+      .select('id').eq('user_id', req.user.id)
+      .ilike('name', '%investimento%').limit(1).single();
+
+    const { data: tx } = await supabase.from('transactions').insert({
+      user_id:     req.user.id,
+      type:        'expense',
+      amount:      totalCost,
+      description: `Aporte — ${inv?.name || 'Investimento'}`,
+      date,
+      account_id,
+      category_id: cat?.id || null,
+      status:      'confirmed',
+    }).select().single();
+
+    linkedTransaction = tx;
+  }
+
+  res.status(201).json({ entry, linked_transaction: linkedTransaction });
 });
 
 // Excluir aporte
 router.delete('/:id/entries/:entryId', async (req, res) => {
   const supabase = db(req.token);
-  await supabase.from('investment_entries').delete().eq('id',req.params.entryId).eq('user_id',req.user.id);
-  const { data: entries } = await supabase.from('investment_entries').select('quantity,price').eq('investment_id',req.params.id);
+  await supabase.from('investment_entries').delete()
+    .eq('id', req.params.entryId).eq('user_id', req.user.id);
+  const { data: entries } = await supabase.from('investment_entries')
+    .select('quantity,price').eq('investment_id', req.params.id);
   const totalQty = (entries||[]).reduce((s,e)=>s+Number(e.quantity),0);
-  const avgPrice = totalQty>0 ? entries.reduce((s,e)=>s+Number(e.quantity)*Number(e.price),0)/totalQty : 0;
-  await supabase.from('investments').update({ quantity:totalQty, avg_price:avgPrice }).eq('id',req.params.id);
-  res.json({ message:'ok' });
+  const avgPrice = totalQty > 0
+    ? entries.reduce((s,e)=>s+Number(e.quantity)*Number(e.price),0)/totalQty : 0;
+  await supabase.from('investments')
+    .update({ quantity: totalQty, avg_price: avgPrice }).eq('id', req.params.id);
+  res.json({ message: 'ok' });
 });
 
 module.exports = router;

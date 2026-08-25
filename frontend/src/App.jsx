@@ -20,6 +20,8 @@ import CalendarPage              from './pages/CalendarPage';
 import NetWorthPage from './pages/NetWorthPage';
 import OnboardingGuard from './components/OnboardingGuard';
 import AnnualPage from './pages/AnnualPage';
+import RecurringCheckRunner from './components/RecurringCheckRunner';
+import ScheduledPage        from './pages/ScheduledPage';
 // Widgets que só aparecem para usuários autenticados
 function AuthWidgets() {
   const { user } = useAuth();
@@ -29,6 +31,7 @@ function AuthWidgets() {
     <OnboardingGuard>
       <PWAInstallPrompt/>
       <LeonWidget/>
+      <RecurringCheckRunner/>
       </OnboardingGuard>
     </>
   );
@@ -65,6 +68,7 @@ export default function App() {
           <Route path="/calendar" element={<PrivateRoute><CalendarPage/></PrivateRoute>} />
           <Route path="/networth" element={<PrivateRoute><NetWorthPage/></PrivateRoute>} />
           <Route path="/annual" element={<PrivateRoute><AnnualPage/></PrivateRoute>} />
+          <Route path="/scheduled" element={<PrivateRoute><ScheduledPage/></PrivateRoute>}/>
           <Route path="*"                     element={<Navigate to="/" replace />} />
         </Routes>
         <AuthWidgets/>

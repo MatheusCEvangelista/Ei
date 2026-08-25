@@ -23,6 +23,7 @@ const SECONDARY = [
   { to:'/calendar', label:'Calendário', icon:'📅' },
   { to:'/networth', label:'Patrimônio', icon:'💎' },
   { to:'/annual', label:'Visão Anual', icon:'📅' },
+  { to:'/scheduled', label:'Agendamentos', icon:'📅' },
 ];
 
 export default function Navbar() {
