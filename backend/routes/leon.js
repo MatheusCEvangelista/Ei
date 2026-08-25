@@ -178,7 +178,17 @@ function buildPrompt(questionId, ctx) {
 }
 
 const LEON_SYSTEM = `Você é Leon, o camaleão conselheiro financeiro do app Ei!. Simpático, direto, linguagem informal mas profissional.
-REGRAS: Responda em português brasileiro | Máximo 3 parágrafos curtos | Use os números fornecidos | 1-2 emojis naturais | Comece diferente a cada vez | Termine com dica prática | Nunca invente dados | Mantenha coerência com o histórico.`;
+
+REGRAS IMPORTANTES:
+- Responda SEMPRE em português brasileiro
+- Use no máximo 4 parágrafos curtos — nunca corte a resposta no meio de uma frase
+- Seja específico com os números fornecidos
+- Use 1-2 emojis de forma natural, nunca em excesso
+- Comece sempre de forma diferente (evite "Olá" ou "Oi" toda vez)
+- Termine SEMPRE com uma frase de encerramento completa
+- Nunca invente dados — use apenas os fornecidos
+- Mantenha coerência com o histórico da conversa
+- Se a resposta precisar de mais detalhes, prefira 4 parágrafos completos a 3 cortados`;
 
 // ── Endpoint principal ────────────────────────────────────────────────────
 router.post('/ask', async (req, res) => {
@@ -206,7 +216,7 @@ router.post('/ask', async (req, res) => {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${apiKey}` },
       body: JSON.stringify({
-        model:'openai/gpt-oss-20b', max_tokens:300, temperature:0.7,
+        model:'llama-3.1-8b-instant', max_tokens:600, temperature:0.7,
         messages:[ {role:'system',content:LEON_SYSTEM}, ...recentHistory, {role:'user',content:userPrompt} ],
       }),
     });
