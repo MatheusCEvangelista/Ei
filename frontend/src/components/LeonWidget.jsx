@@ -3,21 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 
 const LEON_STATES = {
-  happy:     { pos:'0% 0%',     tip:'Finanças em dia! 😎',      pulse:'#2dd4a0' },
-  curious:   { pos:'100% 0%',   tip:'Aqui pra te ajudar! 🦎',   pulse:'#f5a623' },
-  stressed:  { pos:'0% 100%',   tip:'Preciso te contar algo...', pulse:'#f05e6e' },
-  analyzing: { pos:'100% 100%', tip:'Analisando seus dados...',  pulse:'#7c7ff7' },
+  happy:     { img:'/leon/happy.png',     tip:'Finanças em dia! 😎',         pulse:'#2dd4a0' },
+  neutral:   { img:'/leon/neutral.png',   tip:'Aqui pra te ajudar! 🦎',      pulse:'#a78bfa' },
+  stressed:  { img:'/leon/stressed.png',  tip:'Preciso te contar algo...',    pulse:'#f05e6e' },
+  analyzing: { img:'/leon/analyzing.png', tip:'Analisando seus dados...',     pulse:'#7c7ff7' },
+  asking:    { img:'/leon/asking.png',    tip:'Me pergunte qualquer coisa!',  pulse:'#f5a623' },
 };
 
 const GREETING = {
-  happy:   'Oi! Suas finanças estão indo bem 😎 O que quer saber?',
-  curious: 'Olá! Sou o Leon, seu guia financeiro 🦎 Pode perguntar qualquer coisa!',
-  stressed:'Ei! Vi algumas coisas que merecem atenção ⚠️ O que quer conferir?',
+  happy:    'Oi! Suas finanças estão indo bem 😎 O que quer saber?',
+  neutral:  'Olá! Sou o Leon, seu guia financeiro 🦎 Pode perguntar qualquer coisa!',
+  stressed: 'Ei! Vi algumas coisas que merecem atenção ⚠️ O que quer conferir?',
+  analyzing:'Processando seus dados... 🔍',
+  asking:   'Oi! O que você quer saber sobre suas finanças? 🟡',
 };
 
 export default function LeonWidget() {
   const [open,       setOpen]       = useState(false);
-  const [state,      setState]      = useState('curious');
+  const [state,      setState]      = useState('neutral');
   const [questions,  setQuestions]  = useState([]);
   const [messages,   setMessages]   = useState([]);
   const [loading,    setLoading]    = useState(false);
@@ -34,18 +37,29 @@ export default function LeonWidget() {
 
   useEffect(() => {
     if (open && messages.length === 0)
-      setMessages([{ from:'leon', text: GREETING[state] || GREETING.curious }]);
+      setMessages([{ from:'leon', text: GREETING[state] || GREETING.neutral }]);
   }, [open]);
 
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages]);
 
+  // Muda para estado "asking" quando o chat abre
+  function handleOpen() {
+    setOpen(v => {
+      if (!v) setState(s => s === 'happy' || s === 'neutral' ? 'asking' : s);
+      else setState(s => s === 'asking' ? 'neutral' : s);
+      return !v;
+    });
+  }
+
   async function sendMessage({ question_id, message, label }) {
     if (loading) return;
     const userText = label || message;
     setMessages(prev => [...prev, { from:'user', text:userText }]);
     setLoading(true); setInput(''); setShowPreDef(false);
+    setState('analyzing'); // Muda para analisando enquanto processa
+
     const history = messages.filter(m => !m.typing);
     setMessages(prev => [...prev, { from:'leon', text:'...', typing:true }]);
 
@@ -59,9 +73,12 @@ export default function LeonWidget() {
         ...prev.filter(m => !m.typing),
         { from:'leon', text:data.answer, actions:data.actions||[] },
       ]);
+      // Volta para o estado base após responder
+      setState(s => s === 'analyzing' ? 'asking' : s);
     } catch(err) {
       const errMsg = err.response?.data?.error || 'Ops, problema técnico! Tenta de novo? 🦎';
       setMessages(prev => [...prev.filter(m => !m.typing), { from:'leon', text:errMsg }]);
+      setState('neutral');
     }
     setLoading(false);
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -78,18 +95,16 @@ export default function LeonWidget() {
   }
 
   function handleAction(action) {
-    if (action.type === 'navigate') {
-      navigate(action.url);
-      setOpen(false);
-    }
+    if (action.type === 'navigate') { navigate(action.url); setOpen(false); }
   }
 
   function resetChat() {
-    setMessages([{ from:'leon', text: GREETING[state] || GREETING.curious }]);
+    setMessages([{ from:'leon', text: GREETING[state] || GREETING.neutral }]);
     setInput(''); setShowPreDef(true);
+    setState('asking');
   }
 
-  const ls = LEON_STATES[state] || LEON_STATES.curious;
+  const ls = LEON_STATES[state] || LEON_STATES.neutral;
 
   return (
     <>
@@ -100,7 +115,7 @@ export default function LeonWidget() {
         }
         @keyframes leon-bounce {
           0%,100%{transform:translateY(0);}
-          50%{transform:translateY(-5px);}
+          50%{transform:translateY(-6px);}
         }
         @keyframes tdot {
           0%,80%,100%{transform:scale(0.4);opacity:0.3;}
@@ -112,7 +127,7 @@ export default function LeonWidget() {
         }
         .leon-fab{bottom:28px;right:24px;}
         .leon-panel{bottom:108px;right:24px;width:340px;}
-        .leon-bubble{bottom:104px;right:100px;}
+        .leon-bubble{bottom:108px;right:104px;}
         @media(max-width:820px){
           .leon-fab{bottom:calc(72px + env(safe-area-inset-bottom));right:16px;}
           .leon-panel{bottom:calc(150px + env(safe-area-inset-bottom));right:8px;left:8px;width:auto;}
@@ -122,15 +137,23 @@ export default function LeonWidget() {
 
       {/* Balão desktop */}
       {!open && (
-        <div className="leon-bubble" style={{position:'fixed',zIndex:48,background:'var(--bg2)',border:'1px solid var(--border-md)',borderRadius:'12px 12px 2px 12px',padding:'8px 14px',fontSize:12,color:'var(--text)',boxShadow:'var(--shadow)',maxWidth:180,lineHeight:1.4,pointerEvents:'none'}}>
+        <div className="leon-bubble" style={{position:'fixed',zIndex:48,background:'var(--bg2)',border:'1px solid var(--border-md)',borderRadius:'12px 12px 2px 12px',padding:'8px 14px',fontSize:12,color:'var(--text)',boxShadow:'var(--shadow)',maxWidth:190,lineHeight:1.4,pointerEvents:'none'}}>
           {ls.tip}
           <div style={{position:'absolute',bottom:-7,right:12,width:0,height:0,borderLeft:'7px solid transparent',borderTop:`7px solid var(--border-md)`}}/>
         </div>
       )}
 
-      {/* Botão */}
-      <button className="leon-fab" onClick={()=>setOpen(v=>!v)} title="Falar com Leon"
-        style={{position:'fixed',zIndex:49,width:62,height:62,borderRadius:'50%',border:'3px solid var(--bg2)',cursor:'pointer',padding:0,overflow:'hidden',backgroundImage:'url(/leon.png)',backgroundSize:'200% 200%',backgroundPosition:ls.pos,backgroundRepeat:'no-repeat',animation:open?'none':'leon-bounce 2.5s ease-in-out infinite, leon-pulse 2s ease-in-out infinite',transition:'transform 0.2s, background-position 0.4s',transform:open?'scale(1.08)':'scale(1)'}}>
+      {/* Botão Leon */}
+      <button className="leon-fab" onClick={handleOpen} title="Falar com Leon"
+        style={{
+          position:'fixed', zIndex:49,
+          width:68, height:68, borderRadius:'50%',
+          border:'3px solid var(--bg2)', cursor:'pointer',
+          padding:0, overflow:'hidden', background:'transparent',
+          animation: open?'none':'leon-bounce 2.5s ease-in-out infinite, leon-pulse 2s ease-in-out infinite',
+          transition:'transform 0.2s', transform:open?'scale(1.08)':'scale(1)',
+        }}>
+        <img src={ls.img} alt="Leon" style={{width:'100%',height:'100%',objectFit:'cover',transition:'opacity 0.3s'}}/>
       </button>
 
       {/* Painel */}
@@ -139,13 +162,13 @@ export default function LeonWidget() {
 
           {/* Header */}
           <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',borderBottom:'1px solid var(--border)',background:'var(--bg3)',flexShrink:0}}>
-            <div style={{width:36,height:36,borderRadius:'50%',flexShrink:0,backgroundImage:'url(/leon.png)',backgroundSize:'200% 200%',backgroundPosition:ls.pos,border:'2px solid var(--border)'}}/>
+            <img src={ls.img} alt="Leon" style={{width:40,height:40,borderRadius:'50%',objectFit:'cover',border:'2px solid var(--border)',flexShrink:0,transition:'opacity 0.3s'}}/>
             <div style={{flex:1,minWidth:0}}>
               <p style={{fontSize:14,fontWeight:700,color:'var(--text)'}}>Leon</p>
-              <p style={{fontSize:11,color:'var(--text3)'}}>Guia financeiro com IA 🦎</p>
+              <p style={{fontSize:11,color:'var(--text3)'}}>Sua IA Financeira 🦎</p>
             </div>
             <button onClick={resetChat} title="Nova conversa" style={{width:28,height:28,borderRadius:7,border:'1px solid var(--border)',background:'transparent',color:'var(--text3)',cursor:'pointer',fontSize:14,flexShrink:0}}>↺</button>
-            <button onClick={()=>setOpen(false)} style={{width:28,height:28,borderRadius:7,border:'1px solid var(--border)',background:'transparent',color:'var(--text3)',cursor:'pointer',fontSize:16,flexShrink:0}}>×</button>
+            <button onClick={()=>{setOpen(false);setState(s=>s==='asking'?'neutral':s);}} style={{width:28,height:28,borderRadius:7,border:'1px solid var(--border)',background:'transparent',color:'var(--text3)',cursor:'pointer',fontSize:16,flexShrink:0}}>×</button>
           </div>
 
           {/* Mensagens */}
@@ -154,7 +177,7 @@ export default function LeonWidget() {
               <div key={i}>
                 <div style={{display:'flex',justifyContent:msg.from==='user'?'flex-end':'flex-start',gap:6,alignItems:'flex-end'}}>
                   {msg.from==='leon' && (
-                    <div style={{width:24,height:24,borderRadius:'50%',flexShrink:0,backgroundImage:'url(/leon.png)',backgroundSize:'200% 200%',backgroundPosition:ls.pos}}/>
+                    <img src={ls.img} alt="Leon" style={{width:26,height:26,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>
                   )}
                   <div style={{maxWidth:'80%',padding:'8px 11px',borderRadius:msg.from==='user'?'13px 13px 2px 13px':'13px 13px 13px 2px',background:msg.from==='user'?'var(--indigo)':'var(--bg3)',color:msg.from==='user'?'#fff':'var(--text)',fontSize:12,lineHeight:1.5,whiteSpace:'pre-line'}}>
                     {msg.typing ? (
@@ -165,9 +188,8 @@ export default function LeonWidget() {
                   </div>
                 </div>
 
-                {/* Botões de ação após mensagem do Leon */}
                 {msg.from==='leon' && msg.actions?.length>0 && (
-                  <div style={{marginLeft:30,marginTop:6,display:'flex',flexWrap:'wrap',gap:5,animation:'action-in 0.3s ease forwards'}}>
+                  <div style={{marginLeft:32,marginTop:6,display:'flex',flexWrap:'wrap',gap:5,animation:'action-in 0.3s ease forwards'}}>
                     {msg.actions.map((action,j) => (
                       <button key={j} onClick={()=>handleAction(action)}
                         style={{padding:'5px 12px',borderRadius:20,fontSize:11,fontWeight:500,border:'1px solid var(--indigo)',background:'var(--indigo-dim)',color:'var(--indigo)',cursor:'pointer',fontFamily:'var(--font)',transition:'all 0.15s',whiteSpace:'nowrap'}}
@@ -182,17 +204,16 @@ export default function LeonWidget() {
             ))}
           </div>
 
-          {/* Perguntas rápidas colapsáveis */}
+          {/* Perguntas rápidas */}
           <div style={{borderTop:'1px solid var(--border)',flexShrink:0}}>
             <button onClick={()=>setShowPreDef(v=>!v)}
               style={{width:'100%',padding:'7px 12px',background:'var(--bg3)',border:'none',cursor:'pointer',fontSize:11,color:'var(--text3)',fontFamily:'var(--font)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <span>💬 Perguntas rápidas</span>
               <span>{showPreDef?'▲':'▼'}</span>
             </button>
-
             {showPreDef && (
               <div style={{padding:'6px 10px 8px',display:'flex',flexDirection:'column',gap:4,maxHeight:150,overflowY:'auto',background:'var(--bg3)'}}>
-                {questions.map(q => (
+                {questions.map(q=>(
                   <button key={q.id} onClick={()=>sendMessage({question_id:q.id,label:q.label})} disabled={loading}
                     style={{padding:'6px 10px',borderRadius:8,textAlign:'left',border:'1px solid var(--border)',background:'var(--bg2)',color:'var(--text)',fontSize:11,fontFamily:'var(--font)',cursor:loading?'wait':'pointer',transition:'all 0.15s',opacity:loading?0.5:1}}
                     onMouseOver={e=>{if(!loading){e.currentTarget.style.background='var(--indigo-dim)';e.currentTarget.style.color='var(--indigo)';e.currentTarget.style.borderColor='var(--indigo)';}}}
@@ -205,7 +226,8 @@ export default function LeonWidget() {
 
             {/* Campo livre */}
             <div style={{display:'flex',gap:6,padding:'8px 10px',background:'var(--bg2)'}}>
-              <input ref={inputRef} type="text" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleKeyDown} disabled={loading}
+              <input ref={inputRef} type="text" value={input}
+                onChange={e=>setInput(e.target.value)} onKeyDown={handleKeyDown} disabled={loading}
                 placeholder="Ou pergunte qualquer coisa..."
                 style={{flex:1,padding:'8px 12px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text)',fontSize:12,fontFamily:'var(--font)',outline:'none',opacity:loading?0.6:1}}
                 onFocus={e=>e.target.style.borderColor='var(--indigo)'}
