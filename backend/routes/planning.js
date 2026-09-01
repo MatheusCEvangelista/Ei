@@ -163,7 +163,7 @@ Seja direto, use os números reais, máximo 4 parágrafos.`;
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
       body: JSON.stringify({
-        model:'llama-3.1-8b-instant', max_tokens:500, temperature:0.7,
+        model:'openai/gpt-oss-120b', max_tokens:500, temperature:0.7,
         messages:[
           {role:'system',content:'Você é Leon, camaleão conselheiro financeiro. Responda sempre em português brasileiro, seja direto e use os números fornecidos.'},
           {role:'user',content:prompt},

@@ -216,7 +216,7 @@ router.post('/ask', async (req, res) => {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${apiKey}` },
       body: JSON.stringify({
-        model:'llama-3.1-8b-instant', max_tokens:600, temperature:0.7,
+        model:'openai/gpt-oss-120b', max_tokens:600, temperature:0.7,
         messages:[ {role:'system',content:LEON_SYSTEM}, ...recentHistory, {role:'user',content:userPrompt} ],
       }),
     });
