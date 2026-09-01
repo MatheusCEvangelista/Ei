@@ -1,4 +1,0 @@
-Adicionar no server.js:
-
-const reportRoutes = require('./routes/reports');
-app.use('/api/reports', reportRoutes);
