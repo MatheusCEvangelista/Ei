@@ -30,6 +30,7 @@ const SECONDARY_GROUPS = [
       { to:'/budgets',     label:'Tetos',        icon:'📊' },
       { to:'/projections', label:'Projeção',     icon:'📉' },
       { to:'/annual',      label:'Visão Anual',  icon:'📆' },
+      { to:'/planning',    label:'Planejamento', icon:'🗺️' },
       { to:'/networth',    label:'Patrimônio',   icon:'💎' },
       { to:'/calendar',    label:'Calendário',   icon:'🗓️' },
       { to:'/report',      label:'Relatório',    icon:'📄' },
