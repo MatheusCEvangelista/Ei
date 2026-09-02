@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import SwipeableRow from '../components/SwipeableRow';
 
 const fmt  = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
 const inpS = { padding:'10px 12px', background:'var(--bg3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', width:'100%' };
@@ -38,6 +39,7 @@ export default function TransactionList({ transactions, loading, onEdit, onDelet
       `}</style>
 
       {/* Filtros */}
+      <SwipeableRow onEdit={()=>handleEdit(tx)} onDelete={()=>handleDelete(tx.id)}>
       <div className="filters-row" style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}}>
         <div style={{flex:1,minWidth:140,position:'relative'}}>
           <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text3)',fontSize:14}}>⌕</span>
@@ -58,6 +60,7 @@ export default function TransactionList({ transactions, loading, onEdit, onDelet
             Limpar
           </button>
         )}
+        </SwipeableRow>
       </div>
 
       {hasFilters && <p style={{fontSize:12,color:'var(--text3)',marginBottom:12}}>{filtered.length} resultado{filtered.length!==1?'s':''}</p>}

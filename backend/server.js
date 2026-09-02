@@ -24,7 +24,8 @@ const calendarRoutes     = require('./routes/calendar');
 const networthRoutes     = require('./routes/networth');
 const annualRoutes = require('./routes/annual');
 const reportRoutes = require('./routes/reports');
-const planningRoutes = require('./routes/planning'); 
+const planningRoutes = require('./routes/planning');
+const searchRoutes = require('./routes/search'); 
 const app = express();
 
 const allowedOrigins = [
@@ -69,6 +70,7 @@ app.use('/api/networth',      networthRoutes);
 app.use('/api/annual', annualRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/planning', planningRoutes);
+app.use('/api/search', searchRoutes);
 app.locals.createNotification = notificationRoutes.createNotification;
 
 app.use((err, req, res, next) => {

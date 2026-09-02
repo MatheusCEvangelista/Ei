@@ -4,6 +4,7 @@ import PWAInstallPrompt             from './components/PWAInstallPrompt';
 import LeonWidget                   from './components/LeonWidget';
 import OnboardingGuard              from './components/OnboardingGuard';
 import RecurringCheckRunner         from './components/RecurringCheckRunner';
+import TransactionFAB               from './components/TransactionFAB';
 
 import LoginPage                    from './pages/LoginPage';
 import Dashboard                    from './pages/Dashboard';
@@ -34,6 +35,7 @@ function AuthWidgets() {
       <PWAInstallPrompt/>
       <LeonWidget/>
       <RecurringCheckRunner/>
+      <TransactionFAB/>
     </OnboardingGuard>
   );
 }
@@ -52,41 +54,28 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Pública */}
-          <Route path="/login" element={<PublicRoute><LoginPage/></PublicRoute>}/>
-
-          {/* Core */}
-          <Route path="/"             element={<PrivateRoute><Dashboard/></PrivateRoute>}/>
-          <Route path="/accounts"     element={<PrivateRoute><AccountsPage/></PrivateRoute>}/>
-          <Route path="/credit-cards" element={<PrivateRoute><CreditCardsPage/></PrivateRoute>}/>
-          <Route path="/investments"  element={<PrivateRoute><InvestmentsPage/></PrivateRoute>}/>
-          <Route path="/goals"        element={<PrivateRoute><GoalsPage/></PrivateRoute>}/>
-
-          {/* Financeiro */}
-          <Route path="/debts"      element={<PrivateRoute><DebtsPage/></PrivateRoute>}/>
-          <Route path="/recurring"  element={<PrivateRoute><RecurringPage/></PrivateRoute>}/>
-          <Route path="/scheduled"  element={<PrivateRoute><ScheduledPage/></PrivateRoute>}/>
-
-          {/* Análise */}
-          <Route path="/budgets"     element={<PrivateRoute><BudgetsPage/></PrivateRoute>}/>
-          <Route path="/projections" element={<PrivateRoute><ProjectionsPage/></PrivateRoute>}/>
-          <Route path="/annual"      element={<PrivateRoute><AnnualPage/></PrivateRoute>}/>
-          <Route path="/networth"    element={<PrivateRoute><NetWorthPage/></PrivateRoute>}/>
-          <Route path="/calendar"    element={<PrivateRoute><CalendarPage/></PrivateRoute>}/>
-          <Route path="/report"      element={<PrivateRoute><ReportPage/></PrivateRoute>}/>
-          <Route path="/planning"    element={<PrivateRoute><PlanningPage/></PrivateRoute>}/>
-
-          {/* Configurações */}
-          <Route path="/categories"   element={<PrivateRoute><CategoriesPage/></PrivateRoute>}/>
-          <Route path="/calculators"  element={<PrivateRoute><CalculatorsPage/></PrivateRoute>}/>
-          <Route path="/alerts"       element={<PrivateRoute><CustomAlertsPage/></PrivateRoute>}/>
-          <Route path="/notifications" element={<PrivateRoute><NotificationSettingsPage/></PrivateRoute>}/>
-
-          {/* Compat — rota antiga de notificações */}
+          <Route path="/login"          element={<PublicRoute><LoginPage/></PublicRoute>}/>
+          <Route path="/"               element={<PrivateRoute><Dashboard/></PrivateRoute>}/>
+          <Route path="/accounts"       element={<PrivateRoute><AccountsPage/></PrivateRoute>}/>
+          <Route path="/credit-cards"   element={<PrivateRoute><CreditCardsPage/></PrivateRoute>}/>
+          <Route path="/investments"    element={<PrivateRoute><InvestmentsPage/></PrivateRoute>}/>
+          <Route path="/goals"          element={<PrivateRoute><GoalsPage/></PrivateRoute>}/>
+          <Route path="/debts"          element={<PrivateRoute><DebtsPage/></PrivateRoute>}/>
+          <Route path="/recurring"      element={<PrivateRoute><RecurringPage/></PrivateRoute>}/>
+          <Route path="/scheduled"      element={<PrivateRoute><ScheduledPage/></PrivateRoute>}/>
+          <Route path="/budgets"        element={<PrivateRoute><BudgetsPage/></PrivateRoute>}/>
+          <Route path="/projections"    element={<PrivateRoute><ProjectionsPage/></PrivateRoute>}/>
+          <Route path="/annual"         element={<PrivateRoute><AnnualPage/></PrivateRoute>}/>
+          <Route path="/networth"       element={<PrivateRoute><NetWorthPage/></PrivateRoute>}/>
+          <Route path="/calendar"       element={<PrivateRoute><CalendarPage/></PrivateRoute>}/>
+          <Route path="/report"         element={<PrivateRoute><ReportPage/></PrivateRoute>}/>
+          <Route path="/planning"       element={<PrivateRoute><PlanningPage/></PrivateRoute>}/>
+          <Route path="/categories"     element={<PrivateRoute><CategoriesPage/></PrivateRoute>}/>
+          <Route path="/calculators"    element={<PrivateRoute><CalculatorsPage/></PrivateRoute>}/>
+          <Route path="/alerts"         element={<PrivateRoute><CustomAlertsPage/></PrivateRoute>}/>
+          <Route path="/notifications"  element={<PrivateRoute><NotificationSettingsPage/></PrivateRoute>}/>
           <Route path="/notification-settings" element={<Navigate to="/notifications" replace/>}/>
-
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace/>}/>
+          <Route path="*"              element={<Navigate to="/" replace/>}/>
         </Routes>
         <AuthWidgets/>
       </BrowserRouter>

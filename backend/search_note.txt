@@ -1,0 +1,11 @@
+=== server.js — adicionar ===
+const searchRoutes = require('./routes/search');
+app.use('/api/search', searchRoutes);
+
+=== SwipeableRow — como usar em listas de transações ===
+import SwipeableRow from '../components/SwipeableRow';
+
+// Substituir o div da linha de transação por:
+<SwipeableRow onEdit={()=>handleEdit(tx)} onDelete={()=>handleDelete(tx.id)}>
+  {/* conteúdo atual da linha */}
+</SwipeableRow>
