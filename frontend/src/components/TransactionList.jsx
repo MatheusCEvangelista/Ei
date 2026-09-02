@@ -39,7 +39,6 @@ export default function TransactionList({ transactions, loading, onEdit, onDelet
       `}</style>
 
       {/* Filtros */}
-      <SwipeableRow onEdit={()=>handleEdit(tx)} onDelete={()=>handleDelete(tx.id)}>
       <div className="filters-row" style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}}>
         <div style={{flex:1,minWidth:140,position:'relative'}}>
           <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text3)',fontSize:14}}>⌕</span>
@@ -60,7 +59,6 @@ export default function TransactionList({ transactions, loading, onEdit, onDelet
             Limpar
           </button>
         )}
-        </SwipeableRow>
       </div>
 
       {hasFilters && <p style={{fontSize:12,color:'var(--text3)',marginBottom:12}}>{filtered.length} resultado{filtered.length!==1?'s':''}</p>}
@@ -72,7 +70,9 @@ export default function TransactionList({ transactions, loading, onEdit, onDelet
       ) : (
         <div style={{display:'flex',flexDirection:'column',gap:2}}>
           {filtered.map((tx,i) => (
-            <TxRow key={tx.id} tx={tx} onEdit={onEdit} onDelete={onDelete} i={i}/>
+            <SwipeableRow key={tx.id} onEdit={()=>onEdit(tx)} onDelete={()=>onDelete(tx.id)}>
+              <TxRow tx={tx} onEdit={onEdit} onDelete={onDelete} i={i}/>
+            </SwipeableRow>
           ))}
         </div>
       )}
@@ -85,9 +85,8 @@ function TxRow({ tx, onEdit, onDelete, i }) {
 
   return (
     <div
-      className="tx-row"
-      style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 10px',borderRadius:10,transition:'background 0.15s',animationDelay:`${i*20}ms`,gap:8}}
       className="tx-row fade-up"
+      style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 10px',borderRadius:10,transition:'background 0.15s',animationDelay:`${i*20}ms`,gap:8}}
       onMouseEnter={e=>e.currentTarget.style.background='var(--bg3)'}
       onMouseLeave={e=>e.currentTarget.style.background='transparent'}
     >
