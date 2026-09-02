@@ -1,7 +1,7 @@
-
 // ── Modal base ────────────────────────────────────────────────────────────
 // Wrapper de modal com overlay, animação, ESC e click-fora para fechar
 import { useEffect } from 'react';
+
 export function Modal({ children, onClose, maxWidth=480, position='center', style={} }) {
   // Fecha com ESC
   useEffect(() => {
@@ -47,5 +47,71 @@ export function ModalHeader({ title, subtitle, onClose }) {
         <button onClick={onClose} style={{width:28,height:28,borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text2)',cursor:'pointer',fontSize:16,flexShrink:0}}>×</button>
       )}
     </div>
+  );
+}
+
+// ── Componentes Adicionados para Resolver o Build ─────────────────────────
+
+export function Button({ children, variant = 'primary', style = {}, ...props }) {
+  const isPrimary = variant === 'primary';
+  return (
+    <button
+      style={{
+        padding: '10px 16px',
+        borderRadius: 'var(--radius-md, 8px)',
+        border: isPrimary ? 'none' : '1px solid var(--border)',
+        background: isPrimary ? 'var(--accent, #6366f1)' : 'var(--bg3)',
+        color: isPrimary ? '#fff' : 'var(--text)',
+        fontWeight: 500,
+        fontSize: 13,
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        ...style,
+      }}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function InfoBox({ children, style = {} }) {
+  return (
+    <div
+      style={{
+        padding: '10px 12px',
+        borderRadius: 'var(--radius-md, 8px)',
+        background: 'var(--bg3)',
+        border: '1px solid var(--border)',
+        fontSize: 12,
+        color: 'var(--text2)',
+        lineHeight: 1.4,
+        ...style,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function SectionLabel({ children, style = {} }) {
+  return (
+    <label
+      style={{
+        display: 'block',
+        fontSize: 12,
+        fontWeight: 600,
+        color: 'var(--text3)',
+        marginBottom: 6,
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        ...style,
+      }}
+    >
+      {children}
+    </label>
   );
 }
