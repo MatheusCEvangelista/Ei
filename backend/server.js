@@ -26,6 +26,7 @@ const annualRoutes = require('./routes/annual');
 const reportRoutes = require('./routes/reports');
 const planningRoutes = require('./routes/planning');
 const searchRoutes = require('./routes/search'); 
+const healthRoutes = require('./routes/health');
 const app = express();
 
 const allowedOrigins = [
@@ -48,6 +49,7 @@ app.use(express.json());
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
 
 app.use('/api/auth',          authRoutes);
+app.use('/api/health', healthRoutes);
 app.use('/api/transactions',  transactionRoutes);
 app.use('/api/categories',    categoryRoutes);
 app.use('/api/summary',       summaryRoutes);

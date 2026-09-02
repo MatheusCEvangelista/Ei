@@ -26,7 +26,7 @@ import ScheduledPage                from './pages/ScheduledPage';
 import NotificationSettingsPage     from './pages/NotificationSettingsPage';
 import CustomAlertsPage             from './pages/CustomAlertsPage';
 import PlanningPage                 from './pages/PlanningPage';
-
+import BackendWake from './components/BackendWake';
 function AuthWidgets() {
   const { user } = useAuth();
   if (!user) return null;
@@ -79,6 +79,7 @@ export default function App() {
         </Routes>
         <AuthWidgets/>
       </BrowserRouter>
+      <BackendWake/>
     </AuthProvider>
   );
 }

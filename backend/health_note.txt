@@ -1,0 +1,18 @@
+=== server.js — adicionar ANTES das rotas autenticadas ===
+
+const healthRoutes = require('./routes/health');
+app.use('/api/health', healthRoutes); // sem authMiddleware
+
+=== App.jsx — adicionar BackendWake no AuthWidgets ===
+
+import BackendWake from './components/BackendWake';
+
+// Fora do AuthWidgets (funciona mesmo antes do login):
+// Adicionar logo após <BrowserRouter>:
+<BackendWake/>
+
+=== UptimeRobot — manter backend acordado (gratuito) ===
+Monitor tipo: HTTP(s)
+URL: https://seu-backend.onrender.com/api/health
+Intervalo: 5 minutos
+Isso evita o cold start para usuários reais.
