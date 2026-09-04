@@ -5,6 +5,7 @@ import LeonWidget                   from './components/LeonWidget';
 import OnboardingGuard              from './components/OnboardingGuard';
 import RecurringCheckRunner         from './components/RecurringCheckRunner';
 import TransactionFAB               from './components/TransactionFAB';
+import BackendWake                  from './components/BackendWake';
 
 import LoginPage                    from './pages/LoginPage';
 import Dashboard                    from './pages/Dashboard';
@@ -26,7 +27,9 @@ import ScheduledPage                from './pages/ScheduledPage';
 import NotificationSettingsPage     from './pages/NotificationSettingsPage';
 import CustomAlertsPage             from './pages/CustomAlertsPage';
 import PlanningPage                 from './pages/PlanningPage';
-import BackendWake from './components/BackendWake';
+import TransfersPage                from './pages/TransfersPage';
+import HealthScorePage              from './pages/HealthScorePage';
+
 function AuthWidgets() {
   const { user } = useAuth();
   if (!user) return null;
@@ -53,6 +56,7 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <BackendWake/>
         <Routes>
           <Route path="/login"          element={<PublicRoute><LoginPage/></PublicRoute>}/>
           <Route path="/"               element={<PrivateRoute><Dashboard/></PrivateRoute>}/>
@@ -63,6 +67,7 @@ export default function App() {
           <Route path="/debts"          element={<PrivateRoute><DebtsPage/></PrivateRoute>}/>
           <Route path="/recurring"      element={<PrivateRoute><RecurringPage/></PrivateRoute>}/>
           <Route path="/scheduled"      element={<PrivateRoute><ScheduledPage/></PrivateRoute>}/>
+          <Route path="/transfers"      element={<PrivateRoute><TransfersPage/></PrivateRoute>}/>
           <Route path="/budgets"        element={<PrivateRoute><BudgetsPage/></PrivateRoute>}/>
           <Route path="/projections"    element={<PrivateRoute><ProjectionsPage/></PrivateRoute>}/>
           <Route path="/annual"         element={<PrivateRoute><AnnualPage/></PrivateRoute>}/>
@@ -70,6 +75,7 @@ export default function App() {
           <Route path="/calendar"       element={<PrivateRoute><CalendarPage/></PrivateRoute>}/>
           <Route path="/report"         element={<PrivateRoute><ReportPage/></PrivateRoute>}/>
           <Route path="/planning"       element={<PrivateRoute><PlanningPage/></PrivateRoute>}/>
+          <Route path="/health"         element={<PrivateRoute><HealthScorePage/></PrivateRoute>}/>
           <Route path="/categories"     element={<PrivateRoute><CategoriesPage/></PrivateRoute>}/>
           <Route path="/calculators"    element={<PrivateRoute><CalculatorsPage/></PrivateRoute>}/>
           <Route path="/alerts"         element={<PrivateRoute><CustomAlertsPage/></PrivateRoute>}/>
@@ -79,7 +85,6 @@ export default function App() {
         </Routes>
         <AuthWidgets/>
       </BrowserRouter>
-      <BackendWake/>
     </AuthProvider>
   );
 }
