@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { PageShell, PageHeader, Card, StatCard, EmptyState, SkeletonList, Button, Input, Select, InfoBox, SectionLabel, Badge } from '../components/ui';
 import api from '../lib/api';
-import ContributeModal from '../components/ContributeModal';
 
 const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 const fmtDate = d => new Date(d+'T00:00:00').toLocaleDateString('pt-BR');
