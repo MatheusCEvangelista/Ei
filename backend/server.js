@@ -27,6 +27,7 @@ const reportRoutes = require('./routes/reports');
 const planningRoutes = require('./routes/planning');
 const searchRoutes = require('./routes/search'); 
 const healthRoutes = require('./routes/health');
+const customAlertsRoutes = require('./routes/custom_alerts');
 const app = express();
 
 const allowedOrigins = [
@@ -73,6 +74,7 @@ app.use('/api/annual', annualRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/planning', planningRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/custom-alerts', customAlertsRoutes);
 app.locals.createNotification = notificationRoutes.createNotification;
 
 app.use((err, req, res, next) => {

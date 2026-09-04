@@ -1,0 +1,59 @@
+═══════════════════════════════════════════════════════
+GUIA DE CLASSNAMES — adicionar para ativar o responsive.css
+═══════════════════════════════════════════════════════
+
+── AnnualPage.jsx ──────────────────────────────────────
+
+1. Tabs (div com as 4 abas):
+   className="annual-tabs"
+
+2. Seletor de anos (div com os botões de ano):
+   className="annual-year-selector"
+
+3. Cards melhor/pior mês (grid 1fr 1fr):
+   className="annual-highlights"
+
+4. Tabela de meses — envolver em:
+   <div className="table-scroll annual-table-wrap">
+     <table ...> ... </table>
+   </div>
+
+── PlanningPage.jsx ────────────────────────────────────
+
+1. Grid externo (Leon + conteúdo):
+   className="planning-grid"
+
+2. Div do Leon (primeiro filho do grid):
+   className="planning-leon"
+
+3. Div dos botões (Analisar / Usar IA):
+   className="planning-leon-btns"
+
+4. Grid receitas + despesas (1fr 1fr):
+   className="planning-items"
+
+── CalendarPage.jsx ────────────────────────────────────
+
+1. Layout externo (calendário + painel direito):
+   className="calendar-layout"
+
+2. Célula de cada dia no grid:
+   className="calendar-cell"
+
+3. Número do dia dentro da célula:
+   className="calendar-day-num"
+
+4. Container das bolinhas de transação:
+   className="calendar-dots"
+
+5. Cabeçalho Dom/Seg/Ter...:
+   className="calendar-weekdays"
+
+── server.js — ROTA FALTANDO (alertas 404) ─────────────
+
+Adicionar ANTES do app.listen():
+
+  const customAlertsRoutes = require('./routes/custom_alerts');
+  app.use('/api/custom-alerts', customAlertsRoutes);
+
+═══════════════════════════════════════════════════════
