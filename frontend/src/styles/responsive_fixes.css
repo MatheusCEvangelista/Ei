@@ -1,0 +1,73 @@
+/* ═══════════════════════════════════════════════════════
+   responsive_fixes.css — Adicione ao final do index.css
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Planejamento ──────────────────────────────────────── */
+@media (max-width: 820px) {
+  .planning-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .planning-grid > div:first-child {
+    position: static !important;
+    display: flex !important;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+  .planning-grid > div:first-child .leon-container {
+    width: 72px !important;
+    height: 72px !important;
+    flex-shrink: 0;
+  }
+  .planning-items {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (max-width: 480px) {
+  .planning-grid > div:first-child {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+/* ── Calendário ────────────────────────────────────────── */
+@media (max-width: 820px) {
+  .calendar-layout { grid-template-columns: 1fr !important; }
+  .calendar-grid   { gap: 2px !important; }
+  .calendar-cell   { min-height: 48px !important; padding: 4px !important; font-size: 11px !important; }
+}
+
+/* ── Summary grids ─────────────────────────────────────── */
+@media (max-width: 640px) {
+  .summary-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 380px) {
+  .summary-grid { grid-template-columns: 1fr !important; }
+}
+
+/* ── Tabelas com scroll ────────────────────────────────── */
+@media (max-width: 820px) {
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tabs-scroll  { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+  .tabs-scroll::-webkit-scrollbar { display: none; }
+  .modal-grid-2 { grid-template-columns: 1fr !important; }
+}
+
+/* ── FAB mobile ────────────────────────────────────────── */
+@media (max-width: 820px) {
+  .ei-fab {
+    bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+    left: 12px !important;
+    width: 46px !important;
+    height: 46px !important;
+    font-size: 20px !important;
+  }
+  .ei-fab-menu {
+    bottom: calc(134px + env(safe-area-inset-bottom)) !important;
+    left: 12px !important;
+  }
+}
