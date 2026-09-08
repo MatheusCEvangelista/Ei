@@ -112,9 +112,11 @@ function InvestmentModal({ investment, onSave, onClose }) {
 function InvestmentCard({ inv, onEdit, onDelete, onAporte }) {
   const isFixed    = ['fixed_income','treasury'].includes(inv.type);
   const currentVal = isFixed
-    ? (inv.calculated_current_value || inv.initial_amount || 0)
-    : (inv.quantity || 0) * (inv.avg_price || 0);
-  const invested   = isFixed ? (inv.initial_amount || 0) : currentVal;
+    ? Number(inv.calculated_current_value || inv.initial_amount || 0)
+    : Number(inv.quantity || 0) * Number(inv.avg_price || 0);
+  const invested   = isFixed
+    ? Number(inv.initial_amount || 0)
+    : Number(inv.quantity || 0) * Number(inv.avg_price || 0);
   const gain       = currentVal - invested;
   const gainPct    = invested > 0 ? (gain / invested * 100) : 0;
   const color      = TYPE_COLORS[inv.type] || 'var(--indigo)';
@@ -204,8 +206,17 @@ export default function InvestmentsPage() {
     setInvestments(prev => prev.filter(i => i.id !== id));
   }
 
-  const totalInvested  = evolution?.total_invested  || investments.reduce((s,i)=>s+Number(i.initial_amount||0),0);
-  const totalEstimated = evolution?.total_estimated || totalInvested;
+  // Calcula total investido: renda fixa usa initial_amount, variável usa quantity × avg_price
+  const calcInvested = inv => ['fixed_income','treasury'].includes(inv.type)
+    ? Number(inv.initial_amount||0)
+    : Number(inv.quantity||0) * Number(inv.avg_price||0);
+
+  const totalInvested  = evolution?.total_invested  ?? investments.reduce((s,i)=>s+calcInvested(i),0);
+  const totalEstimated = evolution?.total_estimated ?? investments.reduce((s,i)=>{
+    if(['fixed_income','treasury'].includes(i.type))
+      return s + Number(i.calculated_current_value||i.initial_amount||0);
+    return s + calcInvested(i);
+  },0);
   const gain           = evolution?.gain || 0;
   const gainPct        = evolution?.gain_pct || 0;
 
