@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { PageShell, PageHeader, Card, StatCard, EmptyState, SkeletonList, SectionLabel } from '../components/ui';
 import api from '../lib/api';
+import AnnualExport from '../components/AnnualExport';
 
 const fmt  = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 const fmtK = v => Math.abs(v)>=1000?`R$${(v/1000).toFixed(1)}k`:fmt(v);
@@ -118,6 +119,7 @@ export default function AnnualPage() {
             </button>
           ))}
         </div>
+        <AnnualExport data={data} year={year}/>
       </div>
 
       {loading ? (
