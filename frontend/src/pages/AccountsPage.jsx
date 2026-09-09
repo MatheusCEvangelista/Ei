@@ -3,6 +3,7 @@ import api from '../lib/api';
 import Navbar        from '../components/Navbar';
 import AccountModal  from '../components/AccountModal';
 import MonthSelector from '../components/MonthSelector';
+import { useConfirm } from '../components/ConfirmDialog';
 
 const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v);
 const ML  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -18,6 +19,7 @@ export default function AccountsPage() {
   const [modal,    setModal]    = useState(false);
   const [editing,  setEditing]  = useState(null);
   const [expanded, setExpanded] = useState(null);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   async function load() {
     setLoading(true);
@@ -39,11 +41,21 @@ export default function AccountsPage() {
     await api.delete(`/api/accounts/${id}`);
     if(expanded===id) setExpanded(null);
     load();
+    const ok = await confirm({
+      title:        'Excluir conta?',
+      message:      'A conta será excluída permanentemente. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir Conta',
+      icon:         '📈',
+      variant:      'danger',
+    });
   }
+  
 
   const total = Object.values(balances).reduce((s,v)=>s+v,0);
 
   return (
+    <>
+    <ConfirmDialog/>  {/* renderizar uma vez na página */}
     <div style={{minHeight:'100vh',background:'var(--bg)'}}>
       <Navbar/>
       <main className="page-main" style={{maxWidth:700,margin:'0 auto',padding:'24px 16px 80px'}}>
@@ -107,6 +119,7 @@ export default function AccountsPage() {
       </main>
       {modal && <AccountModal account={editing} onClose={()=>{setModal(false);setEditing(null);}} onSave={()=>{setModal(false);setEditing(null);load();}}/>}
     </div>
+  </>
   );
 }
 
