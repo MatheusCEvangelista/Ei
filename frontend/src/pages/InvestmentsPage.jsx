@@ -3,6 +3,7 @@ import { PageShell, PageHeader, Card, StatCard, EmptyState, SkeletonList, Button
 import { useConfirm } from '../components/ConfirmDialog';
 import EntryModal from '../components/EntryModal';
 import api from '../lib/api';
+import { useConfirm } from '../components/ConfirmDialog';
 
 const fmt    = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 const fmtPct = v => `${v >= 0 ? '+' : ''}${v?.toFixed(2)}%`;
@@ -221,6 +222,8 @@ export default function InvestmentsPage() {
   const gainPct        = evolution?.gain_pct || 0;
 
   return (
+    <>
+    <ConfirmDialog/>  {/* renderizar uma vez na página */}
     <PageShell maxWidth={720}>
       <ConfirmDialog/>
       <PageHeader
@@ -272,5 +275,6 @@ export default function InvestmentsPage() {
         />
       )}
     </PageShell>
+    </>
   );
 }
