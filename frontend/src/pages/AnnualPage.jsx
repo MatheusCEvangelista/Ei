@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { PageShell, PageHeader, Card, StatCard, EmptyState, SkeletonList, SectionLabel, Badge } from '../components/ui';
+import { PageShell, PageHeader, Card, StatCard, EmptyState, SkeletonList, SectionLabel } from '../components/ui';
 import api from '../lib/api';
 
 const fmt  = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
@@ -21,6 +21,13 @@ const CustomTooltip = ({active,payload,label}) => {
   );
 };
 
+const TABS = [
+  {id:'overview',    label:'📊 Receitas vs Despesas'},
+  {id:'accumulated', label:'📈 Acumulado'},
+  {id:'categories',  label:'🏷️ Categorias'},
+  {id:'months',      label:'📋 Meses'},
+];
+
 export default function AnnualPage() {
   const currentYear = new Date().getFullYear();
   const [year,    setYear]    = useState(currentYear);
@@ -38,30 +45,80 @@ export default function AnnualPage() {
   useEffect(()=>{ load(); },[year]);
 
   const years = Array.from({length:5},(_,i)=>currentYear-i);
-  const TABS  = [
-    {id:'overview',    label:'📊 Receitas vs Despesas'},
-    {id:'accumulated', label:'📈 Acumulado'},
-    {id:'categories',  label:'🏷️ Categorias'},
-    {id:'months',      label:'📋 Meses'},
-  ];
-
-  const YearSelector = (
-    <div style={{display:'flex',background:'var(--bg3)',borderRadius:'var(--radius-sm)',padding:3,border:'1px solid var(--border)'}}>
-      {years.map(y=>(
-        <button key={y} onClick={()=>setYear(y)} style={{padding:'6px 14px',borderRadius:'var(--radius-sm)',fontSize:'var(--text-sm)',fontWeight:'var(--font-medium)',border:'none',cursor:'pointer',fontFamily:'var(--font)',background:y===year?'var(--bg2)':'transparent',color:y===year?'var(--indigo)':'var(--text3)',transition:'all var(--transition)'}}>
-          {y}
-        </button>
-      ))}
-    </div>
-  );
 
   return (
     <PageShell maxWidth={900}>
-      <PageHeader
-        title="Visão Anual"
-        subtitle={data?`${data.months_with_data} meses com dados em ${year}`:'Resumo do ano'}
-        action={YearSelector}
-      />
+      <style>{`
+        /* ── Responsivo Visão Anual ── */
+        .annual-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          margin-bottom: var(--space-6);
+          flex-wrap: wrap;
+          gap: var(--space-3);
+        }
+        .annual-year-sel {
+          display: flex;
+          background: var(--bg3);
+          border-radius: var(--radius-sm);
+          padding: 3px;
+          border: 1px solid var(--border);
+          overflow-x: auto;
+          scrollbar-width: none;
+          flex-shrink: 0;
+        }
+        .annual-year-sel::-webkit-scrollbar { display: none; }
+        .annual-highlights {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: var(--space-3);
+          margin-bottom: var(--space-5);
+        }
+        .annual-tabs {
+          display: flex;
+          gap: var(--space-1);
+          margin-bottom: var(--space-4);
+          background: var(--bg3);
+          border-radius: var(--radius-sm);
+          padding: 3px;
+          border: 1px solid var(--border);
+          overflow-x: auto;
+          scrollbar-width: none;
+          max-width: 100%;
+        }
+        .annual-tabs::-webkit-scrollbar { display: none; }
+        .annual-tabs button { flex-shrink: 0; }
+        @media (max-width: 640px) {
+          .annual-highlights { grid-template-columns: 1fr; gap: var(--space-2); }
+          .annual-tabs button { padding: 7px 10px !important; font-size: 11px !important; }
+          .annual-year-sel button { padding: 6px 10px !important; font-size: 12px !important; }
+        }
+      `}</style>
+
+      {/* Header manual — mais controle no mobile */}
+      <div className="annual-header">
+        <div>
+          <h1 style={{fontSize:'var(--text-xl)',fontWeight:'var(--font-semibold)',letterSpacing:'-0.03em',color:'var(--text)'}}>Visão Anual</h1>
+          <p style={{fontSize:'var(--text-sm)',color:'var(--text3)',marginTop:'var(--space-1)'}}>
+            {data?`${data.months_with_data} meses com dados em ${year}`:'Resumo do ano'}
+          </p>
+        </div>
+        <div className="annual-year-sel">
+          {years.map(y=>(
+            <button key={y} onClick={()=>setYear(y)} style={{
+              padding:'6px 14px',borderRadius:'var(--radius-sm)',
+              fontSize:'var(--text-sm)',fontWeight:'var(--font-medium)',
+              border:'none',cursor:'pointer',fontFamily:'var(--font)',
+              background:y===year?'var(--bg2)':'transparent',
+              color:y===year?'var(--indigo)':'var(--text3)',
+              transition:'all var(--transition)', whiteSpace:'nowrap',
+            }}>
+              {y}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {loading ? (
         <SkeletonList n={4} h={100} gap={12}/>
@@ -77,7 +134,7 @@ export default function AnnualPage() {
 
         {/* Melhor e pior mês */}
         {(data.best_month||data.worst_month) && (
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'var(--space-3)',marginBottom:'var(--space-5)'}}>
+          <div className="annual-highlights">
             {data.best_month && (
               <div style={{background:'var(--green-dim)',border:'1px solid rgba(45,212,160,0.2)',borderRadius:'var(--radius-lg)',padding:'var(--space-4)'}}>
                 <SectionLabel style={{color:'var(--green)'}}>🏆 Melhor mês</SectionLabel>
@@ -95,10 +152,17 @@ export default function AnnualPage() {
           </div>
         )}
 
-        {/* Tabs */}
-        <div style={{display:'flex',gap:'var(--space-1)',marginBottom:'var(--space-4)',background:'var(--bg3)',borderRadius:'var(--radius-sm)',padding:3,border:'1px solid var(--border)',width:'fit-content',overflowX:'auto'}}>
+        {/* Tabs com scroll horizontal */}
+        <div className="annual-tabs">
           {TABS.map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'7px 14px',borderRadius:'var(--radius-sm)',fontSize:'var(--text-sm)',fontWeight:'var(--font-medium)',border:'none',cursor:'pointer',fontFamily:'var(--font)',background:tab===t.id?'var(--bg2)':'transparent',color:tab===t.id?'var(--indigo)':'var(--text3)',whiteSpace:'nowrap',transition:'all var(--transition)'}}>
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{
+              padding:'7px 14px',borderRadius:'var(--radius-sm)',
+              fontSize:'var(--text-sm)',fontWeight:'var(--font-medium)',
+              border:'none',cursor:'pointer',fontFamily:'var(--font)',
+              background:tab===t.id?'var(--bg2)':'transparent',
+              color:tab===t.id?'var(--indigo)':'var(--text3)',
+              whiteSpace:'nowrap',transition:'all var(--transition)',
+            }}>
               {t.label}
             </button>
           ))}
@@ -109,15 +173,15 @@ export default function AnnualPage() {
           <Card>
             <div style={{padding:'var(--space-5)'}}>
               <SectionLabel style={{marginBottom:'var(--space-4)'}}>Receitas vs Despesas — {year}</SectionLabel>
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={data.months} barGap={3} barCategoryGap="30%">
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-                  <XAxis dataKey="label" tick={{fill:'var(--text3)',fontSize:11}} axisLine={false} tickLine={false}/>
-                  <YAxis tickFormatter={fmtK} tick={{fill:'var(--text3)',fontSize:11}} axisLine={false} tickLine={false} width={56}/>
+                  <XAxis dataKey="label" tick={{fill:'var(--text3)',fontSize:10}} axisLine={false} tickLine={false}/>
+                  <YAxis tickFormatter={fmtK} tick={{fill:'var(--text3)',fontSize:10}} axisLine={false} tickLine={false} width={48}/>
                   <Tooltip content={<CustomTooltip/>}/>
                   <Legend wrapperStyle={{fontSize:12,color:'var(--text2)'}}/>
-                  <Bar dataKey="income" name="Receitas" fill="var(--green)" radius={[5,5,0,0]} maxBarSize={32}/>
-                  <Bar dataKey="expense" name="Despesas" fill="var(--red)" radius={[5,5,0,0]} maxBarSize={32}/>
+                  <Bar dataKey="income" name="Receitas" fill="var(--green)" radius={[5,5,0,0]} maxBarSize={28}/>
+                  <Bar dataKey="expense" name="Despesas" fill="var(--red)" radius={[5,5,0,0]} maxBarSize={28}/>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -129,7 +193,7 @@ export default function AnnualPage() {
           <Card>
             <div style={{padding:'var(--space-5)'}}>
               <SectionLabel style={{marginBottom:'var(--space-4)'}}>Saldo acumulado — {year}</SectionLabel>
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={240}>
                 <AreaChart data={data.months}>
                   <defs>
                     <linearGradient id="annualGrad" x1="0" y1="0" x2="0" y2="1">
@@ -138,8 +202,8 @@ export default function AnnualPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false}/>
-                  <XAxis dataKey="label" tick={{fill:'var(--text3)',fontSize:11}} axisLine={false} tickLine={false}/>
-                  <YAxis tickFormatter={fmtK} tick={{fill:'var(--text3)',fontSize:11}} axisLine={false} tickLine={false} width={56}/>
+                  <XAxis dataKey="label" tick={{fill:'var(--text3)',fontSize:10}} axisLine={false} tickLine={false}/>
+                  <YAxis tickFormatter={fmtK} tick={{fill:'var(--text3)',fontSize:10}} axisLine={false} tickLine={false} width={48}/>
                   <Tooltip content={<CustomTooltip/>}/>
                   <Area dataKey="accumulated" name="Acumulado" stroke="var(--indigo)" strokeWidth={2} fill="url(#annualGrad)"/>
                 </AreaChart>
@@ -160,12 +224,12 @@ export default function AnnualPage() {
                   {data.by_category.slice(0,10).map(cat=>(
                     <div key={cat.name}>
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'var(--space-1)'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',minWidth:0}}>
                           <span style={{width:8,height:8,borderRadius:'50%',background:cat.color,display:'inline-block',flexShrink:0}}/>
-                          <span style={{fontSize:'var(--text-base)',color:'var(--text)'}}>{cat.name}</span>
-                          <span style={{fontSize:'var(--text-xs)',color:'var(--text3)'}}>{cat.pct}%</span>
+                          <span style={{fontSize:'var(--text-base)',color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{cat.name}</span>
+                          <span style={{fontSize:'var(--text-xs)',color:'var(--text3)',flexShrink:0}}>{cat.pct}%</span>
                         </div>
-                        <span style={{fontFamily:'var(--mono)',fontSize:'var(--text-sm)',fontWeight:'var(--font-semibold)',color:'var(--red)'}}>{fmt(cat.total)}</span>
+                        <span style={{fontFamily:'var(--mono)',fontSize:'var(--text-sm)',fontWeight:'var(--font-semibold)',color:'var(--red)',flexShrink:0,marginLeft:'var(--space-2)'}}>{fmt(cat.total)}</span>
                       </div>
                       <div style={{height:6,background:'var(--bg3)',borderRadius:'var(--radius-full)',overflow:'hidden'}}>
                         <div style={{height:'100%',width:`${cat.pct}%`,background:cat.color,borderRadius:'var(--radius-full)',transition:'width 0.4s'}}/>
@@ -178,11 +242,11 @@ export default function AnnualPage() {
           </Card>
         )}
 
-        {/* Tabela de meses */}
+        {/* Tabela de meses — scroll horizontal no mobile */}
         {tab==='months' && (
           <Card>
-            <div style={{overflowX:'auto'}}>
-              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'var(--text-sm)'}}>
+            <div style={{overflowX:'auto',WebkitOverflowScrolling:'touch'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'var(--text-sm)',minWidth:420}}>
                 <thead>
                   <tr style={{background:'var(--bg3)'}}>
                     {['Mês','Receitas','Despesas','Saldo','Acumulado'].map(h=>(
@@ -197,19 +261,19 @@ export default function AnnualPage() {
                       <tr key={i} style={{borderTop:'1px solid var(--border)',opacity:hasData?1:0.35}}
                         onMouseOver={e=>{if(hasData)e.currentTarget.style.background='var(--bg3)';}}
                         onMouseOut={e=>e.currentTarget.style.background='transparent'}>
-                        <td style={{padding:'var(--space-3) var(--space-4)',color:'var(--text)',fontWeight:'var(--font-semibold)'}}>{m.label}</td>
-                        <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',color:'var(--green)'}}>{m.income>0?fmt(m.income):'—'}</td>
-                        <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',color:'var(--red)'}}>{m.expense>0?fmt(m.expense):'—'}</td>
-                        <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',fontWeight:'var(--font-semibold)',color:m.balance>=0?'var(--indigo)':'var(--red)'}}>{hasData?fmt(m.balance):'—'}</td>
-                        <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',color:m.accumulated>=0?'var(--text)':'var(--red)'}}>{hasData?fmt(m.accumulated):'—'}</td>
+                        <td style={{padding:'var(--space-3) var(--space-4)',color:'var(--text)',fontWeight:'var(--font-semibold)',whiteSpace:'nowrap'}}>{m.label}</td>
+                        <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',color:'var(--green)',whiteSpace:'nowrap'}}>{m.income>0?fmt(m.income):'—'}</td>
+                        <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',color:'var(--red)',whiteSpace:'nowrap'}}>{m.expense>0?fmt(m.expense):'—'}</td>
+                        <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',fontWeight:'var(--font-semibold)',color:m.balance>=0?'var(--indigo)':'var(--red)',whiteSpace:'nowrap'}}>{hasData?fmt(m.balance):'—'}</td>
+                        <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',color:m.accumulated>=0?'var(--text)':'var(--red)',whiteSpace:'nowrap'}}>{hasData?fmt(m.accumulated):'—'}</td>
                       </tr>
                     );
                   })}
                   <tr style={{borderTop:'2px solid var(--border)',background:'var(--bg3)'}}>
-                    <td style={{padding:'var(--space-3) var(--space-4)',fontWeight:'var(--font-bold)',color:'var(--text)'}}>Total {year}</td>
-                    <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',fontWeight:'var(--font-bold)',color:'var(--green)'}}>{fmt(data.total_income)}</td>
-                    <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',fontWeight:'var(--font-bold)',color:'var(--red)'}}>{fmt(data.total_expense)}</td>
-                    <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',fontWeight:'var(--font-bold)',color:data.total_balance>=0?'var(--indigo)':'var(--red)'}}>{fmt(data.total_balance)}</td>
+                    <td style={{padding:'var(--space-3) var(--space-4)',fontWeight:'var(--font-bold)',color:'var(--text)',whiteSpace:'nowrap'}}>Total {year}</td>
+                    <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',fontWeight:'var(--font-bold)',color:'var(--green)',whiteSpace:'nowrap'}}>{fmt(data.total_income)}</td>
+                    <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',fontWeight:'var(--font-bold)',color:'var(--red)',whiteSpace:'nowrap'}}>{fmt(data.total_expense)}</td>
+                    <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',fontWeight:'var(--font-bold)',color:data.total_balance>=0?'var(--indigo)':'var(--red)',whiteSpace:'nowrap'}}>{fmt(data.total_balance)}</td>
                     <td style={{padding:'var(--space-3) var(--space-4)',textAlign:'right',fontFamily:'var(--mono)',fontWeight:'var(--font-bold)',color:'var(--text3)'}}>—</td>
                   </tr>
                 </tbody>
