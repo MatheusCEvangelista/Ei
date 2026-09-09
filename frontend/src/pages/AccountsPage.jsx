@@ -46,7 +46,7 @@ export default function AccountsPage() {
     });
     if (!ok) return;
     await api.delete(`/api/accounts/${id}`);
-    setInvestments(prev => prev.filter(i => i.id !== id));
+    setAccounts(prev => prev.filter(acc => acc.id !== id));
   }
   
 
