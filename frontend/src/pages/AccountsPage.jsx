@@ -37,10 +37,6 @@ export default function AccountsPage() {
   useEffect(()=>{load();},[month,year]);
 
   async function handleDelete(id) {
-    if(!confirm('Excluir esta conta?')) return;
-    await api.delete(`/api/accounts/${id}`);
-    if(expanded===id) setExpanded(null);
-    load();
     const ok = await confirm({
       title:        'Excluir conta?',
       message:      'A conta será excluída permanentemente. Esta ação não pode ser desfeita.',
@@ -48,6 +44,9 @@ export default function AccountsPage() {
       icon:         '📈',
       variant:      'danger',
     });
+    if (!ok) return;
+    await api.delete(`/api/accounts/${id}`);
+    setInvestments(prev => prev.filter(i => i.id !== id));
   }
   
 
