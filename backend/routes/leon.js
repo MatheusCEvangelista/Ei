@@ -63,8 +63,8 @@ router.get('/state', async (req, res) => {
   if (hasOverdue)                        { state='stressed'; reason='Parcela vencida'; }
   else if (income>0&&expense>income)     { state='stressed'; reason='Despesas maiores que receitas'; }
   else if (budgetExceeded)               { state='stressed'; reason='Teto ultrapassado'; }
-  else if (income===0&&expense===0)      { state='curious';  reason='Sem movimentações'; }
-  else if (income>0&&expense/income>0.85){ state='curious';  reason=`Gastando ${Math.round(expense/income*100)}% da renda`; }
+  else if (income===0&&expense===0)      { state='neutral';  reason='Sem movimentações'; }
+  else if (income>0&&expense/income>0.85){ state='neutral';  reason=`Gastando ${Math.round(expense/income*100)}% da renda`; }
 
   res.json({ state, reason });
 });

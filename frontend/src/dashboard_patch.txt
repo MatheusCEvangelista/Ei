@@ -1,0 +1,15 @@
+=== Dashboard.jsx — adicionar listener do FAB ===
+
+No useEffect de load, adicionar listener do evento:
+
+  useEffect(() => { load(); }, [load]);
+
+  // ADICIONAR logo abaixo:
+  useEffect(() => {
+    function handleFabSave() { load(); }
+    window.addEventListener('ei:transaction-saved', handleFabSave);
+    return () => window.removeEventListener('ei:transaction-saved', handleFabSave);
+  }, [load]);
+
+Isso garante que quando o FAB salva uma transação de qualquer página,
+o Dashboard recarrega automaticamente os dados do mês.

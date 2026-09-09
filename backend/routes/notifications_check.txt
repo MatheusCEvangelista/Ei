@@ -1,0 +1,32 @@
+=== O NotificationBell usa estas rotas — verificar se existem no server.js ===
+
+GET  /api/notifications?limit=20       → lista notificações
+PATCH /api/notifications/read-all      → marca todas como lidas
+PATCH /api/notifications/:id/read      → marca uma como lida
+DELETE /api/notifications/:id          → deleta uma notificação
+
+Se alguma não existir no seu notifications.js, adicione:
+
+// Marcar todas como lidas
+router.patch('/read-all', async (req, res) => {
+  const { error } = await db(req.token).from('notifications')
+    .update({ read: true }).eq('user_id', req.user.id).eq('read', false);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ message: 'ok' });
+});
+
+// Marcar uma como lida
+router.patch('/:id/read', async (req, res) => {
+  const { error } = await db(req.token).from('notifications')
+    .update({ read: true }).eq('id', req.params.id).eq('user_id', req.user.id);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ message: 'ok' });
+});
+
+// Deletar
+router.delete('/:id', async (req, res) => {
+  const { error } = await db(req.token).from('notifications')
+    .delete().eq('id', req.params.id).eq('user_id', req.user.id);
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ message: 'ok' });
+});

@@ -1,0 +1,26 @@
+=== Fix: estado 'curious' → 'neutral' no leon.js ===
+
+No seu backend/routes/leon.js, localize o endpoint GET /state:
+
+  router.get('/state', async (req, res) => {
+    ...
+    let state='happy', reason='Tudo bem!';
+    ...
+    else if (income===0&&expense===0) { state='curious'; reason=... }   ← TROCAR
+    ...
+  });
+
+Substituir TODAS as ocorrências de:
+  state = 'curious'
+  state='curious'
+  { state: 'curious' }
+  { state:'curious' }
+
+Por:
+  state = 'neutral'
+  state='neutral'
+  { state: 'neutral' }
+  { state:'neutral' }
+
+O estado 'curious' foi removido na nova identidade visual do Leon.
+Os 5 estados válidos agora são: happy, neutral, stressed, analyzing, asking
