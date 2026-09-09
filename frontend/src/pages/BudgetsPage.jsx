@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../lib/api';
 import Navbar from '../components/Navbar';
 import MonthSelector from '../components/MonthSelector';
+import { useConfirm } from '../components/ConfirmDialog';
 
 const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
@@ -37,6 +38,7 @@ export default function BudgetsPage() {
   const [manualCats, setManualCats] = useState([]);
   const [manualForm, setManualForm] = useState({ category_id: '', amount: '' });
   const [savingManual, setSavingManual] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirm();
 
   async function loadCategories() {
     if (manualCats.length) return;
@@ -93,11 +95,16 @@ export default function BudgetsPage() {
   }
 
   async function deleteBudget(id) {
-    if (!confirm('Remover este teto?')) return;
-    try {
-      await api.delete(`/api/budgets/${id}`);
-      loadBudgets();
-    } catch (e) { console.error(e); }
+    const ok = await confirm({
+      title:        'Remover este teto?',
+      message:      'Esse teto será removido. Esta ação não pode ser desfeita.',
+      confirmLabel: 'Excluir Teto',
+      icon:         '📈',
+      variant:      'danger',
+    });
+    if (!ok) return;
+    await api.delete(`/api/budgets/${id}`);
+    setBudgets(prev => prev.filter(b => b.id !== id));
   }
 
   async function applySuggestion(sugg, value) {
@@ -111,6 +118,8 @@ export default function BudgetsPage() {
   const overBudget = budgets.filter(b => b.pct >= 100).length;
 
   return (
+    <>
+    <ConfirmDialog/>  {/* renderizar uma vez na página */}
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Navbar />
       <main className="page-main" style={{ maxWidth: 700, margin: '0 auto', padding: '24px 16px 80px' }}>
@@ -286,6 +295,7 @@ export default function BudgetsPage() {
         </div>
       )}
     </div>
+ </>
   );
 }
 
