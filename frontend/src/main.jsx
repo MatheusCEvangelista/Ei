@@ -13,6 +13,8 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw-push.js', { scope: '/' }).catch(() => {});
 }
 
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>

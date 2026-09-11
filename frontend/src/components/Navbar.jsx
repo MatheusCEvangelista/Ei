@@ -33,6 +33,7 @@ const SECONDARY_GROUPS = [
     { to:'/calculators',  label:'Calculadoras',  icon:'🧮' },
     { to:'/alerts',       label:'Alertas',       icon:'🔔' },
     { to:'/notifications',label:'Notificações',  icon:'⚙️' },
+    { to:'/profile', label:'Meu perfil', icon:'👤' },
   ]},
 ];
 

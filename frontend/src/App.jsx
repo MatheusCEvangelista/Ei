@@ -8,6 +8,7 @@ import OnboardingGuard              from './components/OnboardingGuard';
 import RecurringCheckRunner         from './components/RecurringCheckRunner';
 import TransactionFAB               from './components/TransactionFAB';
 import BackendWake                  from './components/BackendWake';
+import PushNotifications            from './components/PushNotifications';
 
 // Lazy loading — cada página só carrega quando acessada
 const LoginPage                = lazy(()=>import('./pages/LoginPage'));
@@ -56,6 +57,7 @@ function AuthWidgets() {
       <LeonWidget/>
       <RecurringCheckRunner/>
       <TransactionFAB/>
+      <PushNotifications/>
     </OnboardingGuard>
   );
 }
