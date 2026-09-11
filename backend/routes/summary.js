@@ -11,94 +11,68 @@ function db(token) {
   });
 }
 
-router.get('/', async (req, res) => {
-  const { month, year, account_id } = req.query;
+async function getMonthSummary(supabase, userId, month, year) {
   const start = `${year}-${String(month).padStart(2,'0')}-01`;
   const end   = new Date(year, month, 0).toISOString().split('T')[0];
 
-  let query = db(req.token).from('transactions')
-    .select('amount,type,categories(name,color)')
-    .eq('user_id', req.user.id)
-    .gte('date', start).lte('date', end)
-    .is('transfer_id', null); // Exclui transferências
-  if (account_id) query = query.eq('account_id', account_id);
+  const { data: txs } = await supabase.from('transactions')
+    .select('amount,type,category_id,transfer_id,is_investment,categories(name,color)')
+    .eq('user_id', userId).gte('date', start).lte('date', end)
+    .neq('status','pending');
 
-  const { data, error } = await query;
-  if (error) return res.status(400).json({ error: error.message });
+  const real = (txs||[]).filter(t => !t.transfer_id);
 
-  const income  = data.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
-  const expense = data.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
-
-  const byCategory = {};
-  data.filter(t=>t.type==='expense').forEach(t => {
-    const name = t.categories?.name || 'Sem categoria';
-    if (!byCategory[name]) byCategory[name] = { name, value:0, color: t.categories?.color||'#6b7280' };
-    byCategory[name].value += Number(t.amount);
-  });
-
-  res.json({ income, expense, balance: income-expense, byCategory: Object.values(byCategory) });
-});
-
-router.get('/evolution', async (req, res) => {
-  const today  = new Date();
-  const months = Array.from({length:6},(_,i) => {
-    const d = new Date(today.getFullYear(), today.getMonth()-i, 1);
-    return { month: d.getMonth()+1, year: d.getFullYear() };
-  }).reverse();
-
-  const results = await Promise.all(months.map(async ({month,year}) => {
-    const start = `${year}-${String(month).padStart(2,'0')}-01`;
-    const end   = new Date(year, month, 0).toISOString().split('T')[0];
-    const { data } = await db(req.token).from('transactions')
-      .select('amount,type')
-      .eq('user_id', req.user.id)
-      .gte('date',start).lte('date',end)
-      .is('transfer_id', null); // Exclui transferências
-    const income  = (data||[]).filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
-    const expense = (data||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
-    return { label: new Date(year,month-1).toLocaleString('pt-BR',{month:'short'}), income, expense };
-  }));
-
-  res.json(results);
-});
-
-router.get('/analysis', async (req, res) => {
-  const { month, year } = req.query;
-  const start    = `${year}-${String(month).padStart(2,'0')}-01`;
-  const end      = new Date(year, month, 0).toISOString().split('T')[0];
-  const prevMonth = Number(month)===1 ? 12 : Number(month)-1;
-  const prevYear  = Number(month)===1 ? Number(year)-1 : Number(year);
-  const prevStart = `${prevYear}-${String(prevMonth).padStart(2,'0')}-01`;
-  const prevEnd   = new Date(prevYear, prevMonth, 0).toISOString().split('T')[0];
-
-  const supabase = db(req.token);
-  const [{ data: curr }, { data: prev }] = await Promise.all([
-    supabase.from('transactions').select('amount,type,categories(name)')
-      .eq('user_id', req.user.id).gte('date',start).lte('date',end).is('transfer_id',null),
-    supabase.from('transactions').select('amount,type')
-      .eq('user_id', req.user.id).gte('date',prevStart).lte('date',prevEnd).is('transfer_id',null),
-  ]);
-
-  const income      = (curr||[]).filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
-  const expense     = (curr||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
-  const prevIncome  = (prev||[]).filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
-  const prevExpense = (prev||[]).filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
+  // Investimentos NÃO contam como despesa no dashboard
+  const income  = real.filter(t=>t.type==='income' && !t.is_investment).reduce((s,t)=>s+Number(t.amount),0);
+  const expense = real.filter(t=>t.type==='expense'&& !t.is_investment).reduce((s,t)=>s+Number(t.amount),0);
+  const invested= real.filter(t=>t.is_investment).reduce((s,t)=>s+Number(t.amount),0);
 
   const byCat = {};
-  (curr||[]).filter(t=>t.type==='expense').forEach(t => {
-    const k = t.categories?.name||'Sem categoria';
-    byCat[k] = (byCat[k]||0) + Number(t.amount);
+  real.filter(t=>t.type==='expense'&&!t.is_investment&&t.category_id).forEach(t=>{
+    const n = t.categories?.name||'Sem categoria';
+    const c = t.categories?.color||'#6b7280';
+    if (!byCat[t.category_id]) byCat[t.category_id]={ name:n, color:c, value:0, category_id:t.category_id };
+    byCat[t.category_id].value += Number(t.amount);
   });
-  const topCategories = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3)
-    .map(([name,value]) => ({ name, value, pct: expense>0?Math.round(value/expense*100):0 }));
+
+  return {
+    income:  Math.round(income  * 100) / 100,
+    expense: Math.round(expense * 100) / 100,
+    balance: Math.round((income - expense) * 100) / 100,
+    invested:Math.round(invested* 100) / 100,
+    byCategory: Object.values(byCat).sort((a,b)=>b.value-a.value),
+  };
+}
+
+// GET /api/summary?month=8&year=2026
+router.get('/', async (req, res) => {
+  const supabase = db(req.token);
+  const month    = Number(req.query.month) || new Date().getMonth()+1;
+  const year     = Number(req.query.year)  || new Date().getFullYear();
+
+  // Mês anterior
+  const prevMonth = month===1 ? 12 : month-1;
+  const prevYear  = month===1 ? year-1 : year;
+
+  const [curr, prev] = await Promise.all([
+    getMonthSummary(supabase, req.user.id, month, year),
+    getMonthSummary(supabase, req.user.id, prevMonth, prevYear),
+  ]);
+
+  // Calcula variação percentual
+  function pctChange(curr, prev) {
+    if (!prev || prev === 0) return null;
+    return Math.round(((curr - prev) / prev) * 100);
+  }
 
   res.json({
-    income, expense, balance: income-expense,
-    prevIncome, prevExpense,
-    incomeVar:  prevIncome>0  ? Math.round((income-prevIncome)/prevIncome*100)    : null,
-    expenseVar: prevExpense>0 ? Math.round((expense-prevExpense)/prevExpense*100)  : null,
-    savingRate: income>0 ? Math.round((income-expense)/income*100) : 0,
-    topCategories, txCount: (curr||[]).length,
+    ...curr,
+    prev: prev,
+    changes: {
+      income:  pctChange(curr.income,  prev.income),
+      expense: pctChange(curr.expense, prev.expense),
+      balance: pctChange(curr.balance, prev.balance),
+    },
   });
 });
 
