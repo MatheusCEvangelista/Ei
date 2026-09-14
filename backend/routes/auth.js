@@ -35,7 +35,7 @@ router.post('/logout', async (req, res) => {
   await supabase.auth.signOut();
 
 
-
+module.exports = router;
 
 
 
