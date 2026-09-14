@@ -36,7 +36,7 @@ export default function ProfilePage() {
   async function handleSaveName(e) {
     e.preventDefault(); setSaving(true); setMsg(null);
     try {
-      await api.put('/api/auth/profile', { name });
+      await api.put('/api/profile/name', { name });
       setMsg({ type:'success', text:'Nome atualizado com sucesso!' });
     } catch(err) {
       setMsg({ type:'error', text: err.response?.data?.error || 'Erro ao atualizar nome.' });
@@ -54,7 +54,7 @@ export default function ProfilePage() {
     }
     setPwSaving(true);
     try {
-      await api.put('/api/auth/password', { password: pwForm.next });
+      await api.put('/api/profile/password', { password: pwForm.next });
       setMsg({ type:'success', text:'Senha alterada! Faça login novamente.' });
       setPwForm({ current:'', next:'', confirm:'' });
       setTimeout(() => logout(), 2000);
