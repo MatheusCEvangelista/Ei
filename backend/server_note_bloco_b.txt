@@ -1,0 +1,10 @@
+=== server.js — APENAS adicionar estas linhas (NÃO substituir authRoutes existente) ===
+
+const profileRoutes = require('./routes/profile');
+const pushRoutes    = require('./routes/push');
+
+app.use('/api/profile', profileRoutes);
+app.use('/api/push',    pushRoutes);
+
+⚠️  NÃO adicionar nem substituir a rota /api/auth — ela já existe e contém login/registro.
+⚠️  Deletar o arquivo backend/routes/auth.js que veio no bloco_b.zip — ele era errado.
