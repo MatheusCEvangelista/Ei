@@ -1,0 +1,36 @@
+=== SQL — executar no Supabase ===
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id         uuid default gen_random_uuid() primary key,
+  user_id    uuid references auth.users(id) on delete cascade,
+  endpoint   text not null unique,
+  subscription text not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "própria subscription" ON push_subscriptions
+  FOR ALL USING (auth.uid() = user_id);
+
+=== server.js — adicionar ===
+
+const authRoutes = require('./routes/auth');
+const pushRoutes = require('./routes/push');
+app.use('/api/auth',  authRoutes);
+app.use('/api/push',  pushRoutes);
+
+=== .env (Render) — já deve ter ===
+VAPID_PUBLIC_KEY=BPbiZAUlrcVxOq5S_ckhnrtOJvfV6kHdq154iEy_K-O8KlqRPRLwTGVXCjKotjVFggXbG6Txkk_u50Inb8KJmlo
+VAPID_PRIVATE_KEY=1_Xq4hipHfRvZMHlX6rOSyDH-aXnjZe7ka0hCBHayWe
+VAPID_EMAIL=seu@email.com
+
+=== vite.config.js — registrar Service Worker ===
+// Adicionar plugin VitePWA ou registrar manualmente:
+// Em index.html ou main.jsx:
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+
+=== Navbar.jsx — adicionar link do perfil ===
+// Em SECONDARY_GROUPS > Configurações:
+{ to:'/profile', label:'Meu perfil', icon:'👤' },
