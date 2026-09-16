@@ -1,0 +1,50 @@
+=== SQL — executar no Supabase ===
+
+CREATE TABLE IF NOT EXISTS bank_connections (
+  id           uuid default gen_random_uuid() primary key,
+  user_id      uuid references auth.users(id) on delete cascade,
+  item_id      text not null,
+  connector_id integer,
+  bank_name    text,
+  bank_logo    text,
+  status       text default 'UPDATING',
+  auto_sync    boolean default false,
+  last_sync_at timestamptz,
+  error_msg    text,
+  created_at   timestamptz default now()
+);
+
+ALTER TABLE bank_connections ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "conexões próprias" ON bank_connections
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Index para cron de auto-sync
+CREATE INDEX IF NOT EXISTS bank_connections_auto_sync_idx
+  ON bank_connections(auto_sync) WHERE auto_sync = true;
+
+-- Campo import_hash nas transações (evita duplicatas na importação)
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS import_hash text;
+CREATE UNIQUE INDEX IF NOT EXISTS transactions_import_hash_idx
+  ON transactions(user_id, import_hash) WHERE import_hash IS NOT NULL;
+
+=== server.js — adicionar ===
+
+const pluggyRoutes = require('./routes/pluggy');
+app.use('/api/pluggy', pluggyRoutes);
+
+=== App.jsx — adicionar rota ===
+
+const ConnectionsPage = lazy(()=>import('./pages/ConnectionsPage'));
+<Route path="/connections" element={<PrivateRoute><ConnectionsPage/></PrivateRoute>}/>
+
+=== Navbar.jsx — adicionar link (grupo Configurações) ===
+{ to:'/connections', label:'Conexões bancárias', icon:'🔗' }
+
+=== UptimeRobot — sync automático diário ===
+Monitor tipo: HTTP(s) — POST
+URL: https://seu-backend.onrender.com/api/pluggy/sync-all
+Intervalo: 1440 minutos (1x por dia, às 6h)
+Headers: Authorization: Bearer <token-de-um-usuário-admin>
+
+

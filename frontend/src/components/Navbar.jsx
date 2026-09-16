@@ -34,6 +34,7 @@ const SECONDARY_GROUPS = [
     { to:'/alerts',       label:'Alertas',       icon:'🔔' },
     { to:'/notifications',label:'Notificações',  icon:'⚙️' },
     { to:'/profile', label:'Meu perfil', icon:'👤' },
+    { to:'/connections', label:'Conexões bancárias', icon:'🔗' },
   ]},
 ];
 
