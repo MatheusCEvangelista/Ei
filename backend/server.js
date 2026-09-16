@@ -30,6 +30,7 @@ const healthRoutes = require('./routes/health');
 const customAlertsRoutes = require('./routes/custom_alerts');
 const pluggyRoutes = require('./routes/pluggy');
 const pushRoutes = require('./routes/push');
+const profileRoutes = require('./routes/profile');
 const app = express();
 
 const allowedOrigins = [
@@ -79,6 +80,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/custom-alerts', customAlertsRoutes);
 app.use('/api/push',  pushRoutes);
 app.use('/api/pluggy', pluggyRoutes);
+app.use('/api/profile', profileRoutes);
 app.locals.createNotification = notificationRoutes.createNotification;
 
 app.use((err, req, res, next) => {

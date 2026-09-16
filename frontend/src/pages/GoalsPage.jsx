@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PageShell, PageHeader, Card, StatCard, EmptyState, SkeletonList, Button, Input, Select, InfoBox, SectionLabel, Badge } from '../components/ui';
+import { PageShell, PageHeader, Card, StatCard, EmptyState, SkeletonList, Button, Input, InfoBox, SectionLabel, Badge } from '../components/ui';
 import api from '../lib/api';
 
 const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
@@ -16,8 +16,8 @@ function GoalModal({ goal, onSave, onClose }) {
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState('');
 
-  const remaining  = Math.max(0,(parseFloat(form.target_amount)||0)-(parseFloat(form.current_amount)||0));
-  const monthsLeft = form.deadline ? (() => {
+  const remaining    = Math.max(0,(parseFloat(form.target_amount)||0)-(parseFloat(form.current_amount)||0));
+  const monthsLeft   = form.deadline ? (() => {
     const now=new Date(),end=new Date(form.deadline);
     return Math.max(0,(end.getFullYear()-now.getFullYear())*12+(end.getMonth()-now.getMonth()));
   })() : null;
@@ -37,10 +37,10 @@ function GoalModal({ goal, onSave, onClose }) {
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',backdropFilter:'blur(4px)',display:'flex',alignItems:'flex-end',justifyContent:'center',zIndex:50,padding:'var(--space-4)'}} onClick={onClose}>
       <div style={{background:'var(--bg2)',border:'1px solid var(--border-md)',borderRadius:'var(--radius-xl) var(--radius-xl) 0 0',width:'100%',maxWidth:480,padding:'8px 22px 32px',maxHeight:'90vh',overflowY:'auto',boxShadow:'var(--shadow)'}} className="fade-up" onClick={e=>e.stopPropagation()}>
         <div style={{width:36,height:4,borderRadius:2,background:'var(--bg3)',margin:'10px auto 20px'}}/>
-        <PageHeader
-          title={goal?.id?'Editar meta':'Nova meta'}
-          action={<button onClick={onClose} style={{width:28,height:28,borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text2)',cursor:'pointer',fontSize:16}}>×</button>}
-        />
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-4)'}}>
+          <h2 style={{fontSize:'var(--text-lg)',fontWeight:'var(--font-semibold)'}}>{goal?.id?'Editar meta':'Nova meta'}</h2>
+          <button onClick={onClose} style={{width:28,height:28,borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text2)',cursor:'pointer',fontSize:16}}>×</button>
+        </div>
         <form onSubmit={handleSave}>
           <div style={{display:'flex',flexDirection:'column',gap:'var(--space-4)'}}>
             <div>
@@ -82,42 +82,112 @@ function GoalModal({ goal, onSave, onClose }) {
   );
 }
 
+// ── ContributeModal CORRIGIDO — catch com error handling ─────────────────
 function ContributeModal({ goal, onSave, onClose }) {
   const [amount, setAmount] = useState('');
   const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState('');
 
   async function handleSave(e) {
-    e.preventDefault(); setSaving(true);
-    try { await api.patch(`/api/goals/${goal.id}/contribute`,{amount:parseFloat(amount)}); onSave(); }
-    catch{}
+    e.preventDefault();
+    const val = parseFloat(amount);
+    if (!val || val <= 0) { setError('Informe um valor válido.'); return; }
+    setError(''); setSaving(true);
+    try {
+      await api.patch(`/api/goals/${goal.id}/contribute`, { amount: val });
+      onSave(); // ← só chamado se não houver erro
+    } catch(err) {
+      // Erro agora é visível para o usuário
+      setError(err.response?.data?.error || 'Erro ao registrar aporte. Tente novamente.');
+    }
     setSaving(false);
   }
 
+  const remaining = Number(goal.remaining || 0);
+  const monthly   = Number(goal.monthly_target || 0);
+
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.6)',backdropFilter:'blur(4px)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:50,padding:'var(--space-4)'}} onClick={onClose}>
-      <Card style={{width:'100%',maxWidth:360}} onClick={e=>e.stopPropagation()}>
+      <Card style={{width:'100%',maxWidth:380,boxShadow:'0 16px 48px rgba(0,0,0,0.3)'}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:'var(--space-5)'}}>
-          <h3 style={{fontSize:'var(--text-md)',fontWeight:'var(--font-semibold)',marginBottom:'var(--space-1)'}}>Adicionar aporte</h3>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'var(--space-1)'}}>
+            <h3 style={{fontSize:'var(--text-md)',fontWeight:'var(--font-semibold)'}}>Adicionar aporte</h3>
+            <button onClick={onClose} style={{width:28,height:28,borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text2)',cursor:'pointer',fontSize:16}}>×</button>
+          </div>
           <p style={{fontSize:'var(--text-sm)',color:'var(--text3)',marginBottom:'var(--space-4)'}}>{goal.icon} {goal.name}</p>
-          {goal.monthly_target && (
+
+          {/* Progresso */}
+          <div style={{background:'var(--bg3)',borderRadius:'var(--radius-md)',padding:'var(--space-3)',marginBottom:'var(--space-4)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:'var(--space-1)'}}>
+              <span style={{fontSize:'var(--text-xs)',color:'var(--text3)'}}>Progresso atual</span>
+              <span style={{fontSize:'var(--text-xs)',fontFamily:'var(--mono)',fontWeight:'var(--font-semibold)',color:'var(--text)'}}>{goal.pct||0}%</span>
+            </div>
+            <div style={{height:6,background:'var(--bg2)',borderRadius:'var(--radius-full)',overflow:'hidden'}}>
+              <div style={{height:'100%',width:`${Math.min(100,goal.pct||0)}%`,background:'linear-gradient(90deg,var(--indigo),#a78bfa)',borderRadius:'var(--radius-full)'}}/>
+            </div>
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:'var(--space-2)'}}>
+              <span style={{fontSize:11,color:'var(--green)',fontFamily:'var(--mono)',fontWeight:'var(--font-semibold)'}}>{fmt(goal.current_amount)}</span>
+              <span style={{fontSize:11,color:'var(--text3)',fontFamily:'var(--mono)'}}>{fmt(goal.target_amount)}</span>
+            </div>
+          </div>
+
+          {monthly > 0 && (
             <InfoBox variant="info" style={{marginBottom:'var(--space-4)'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <span>Meta mensal sugerida</span>
-                <strong style={{fontFamily:'var(--mono)',fontSize:'var(--text-md)'}}>{fmt(goal.monthly_target)}</strong>
+                <strong style={{fontFamily:'var(--mono)',fontSize:'var(--text-md)'}}>{fmt(monthly)}</strong>
               </div>
             </InfoBox>
           )}
+
           <form onSubmit={handleSave} style={{display:'flex',flexDirection:'column',gap:'var(--space-3)'}}>
-            <Input label="Valor do aporte (R$)" type="number" required value={amount} onChange={e=>setAmount(e.target.value)} placeholder={`Sugerido: ${fmt(goal.monthly_target||goal.remaining)}`}/>
-            <div style={{display:'flex',gap:'var(--space-2)'}}>
-              {[goal.monthly_target,goal.remaining].filter(Boolean).map((v,i)=>(
-                <button key={i} type="button" onClick={()=>setAmount(v.toFixed(2))}
-                  style={{flex:1,padding:'var(--space-2)',borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text2)',fontSize:'var(--text-sm)',cursor:'pointer',fontFamily:'var(--font)'}}>
-                  {i===0?`Meta: ${fmt(v)}`:`Total: ${fmt(v)}`}
-                </button>
-              ))}
+            <div>
+              <label style={{display:'block',fontSize:'var(--text-xs)',color:'var(--text2)',fontWeight:'var(--font-medium)',marginBottom:'var(--space-1)',textTransform:'uppercase',letterSpacing:'0.05em'}}>
+                Valor do aporte (R$) *
+              </label>
+              <input
+                autoFocus type="number" step="0.01" inputMode="decimal"
+                required value={amount}
+                onChange={e=>{setAmount(e.target.value);setError('');}}
+                placeholder="0,00"
+                style={{width:'100%',padding:'11px 14px',background:'var(--bg3)',border:`1px solid ${error?'var(--red)':'var(--border)'}`,borderRadius:'var(--radius-sm)',color:'var(--text)',fontSize:'var(--text-lg)',fontFamily:'var(--mono)',fontWeight:'var(--font-bold)',outline:'none',textAlign:'center',boxSizing:'border-box'}}
+                onFocus={e=>e.target.style.borderColor='var(--indigo)'}
+                onBlur={e=>e.target.style.borderColor=error?'var(--red)':'var(--border)'}
+              />
             </div>
-            <Button type="submit" disabled={saving} size="lg" style={{width:'100%'}}>{saving?'Salvando...':'Confirmar aporte'}</Button>
+
+            {/* Atalhos */}
+            {(monthly > 0 || remaining > 0) && (
+              <div style={{display:'flex',gap:'var(--space-2)'}}>
+                {monthly > 0 && (
+                  <button type="button" onClick={()=>{setAmount(monthly.toFixed(2));setError('');}}
+                    style={{flex:1,padding:'7px',borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text2)',fontSize:'var(--text-xs)',cursor:'pointer',fontFamily:'var(--font)',transition:'all var(--transition)'}}
+                    onMouseOver={e=>{e.currentTarget.style.borderColor='var(--indigo)';e.currentTarget.style.color='var(--indigo)';}}
+                    onMouseOut={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text2)';}}>
+                    Meta: {fmt(monthly)}
+                  </button>
+                )}
+                {remaining > 0 && (
+                  <button type="button" onClick={()=>{setAmount(remaining.toFixed(2));setError('');}}
+                    style={{flex:1,padding:'7px',borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text2)',fontSize:'var(--text-xs)',cursor:'pointer',fontFamily:'var(--font)',transition:'all var(--transition)'}}
+                    onMouseOver={e=>{e.currentTarget.style.borderColor='var(--green)';e.currentTarget.style.color='var(--green)';}}
+                    onMouseOut={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text2)';}}>
+                    Total: {fmt(remaining)}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {error && (
+              <div style={{background:'var(--red-dim)',border:'1px solid rgba(240,94,110,0.25)',borderRadius:'var(--radius-md)',padding:'10px 14px',fontSize:'var(--text-xs)',color:'var(--red)'}}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            <button type="submit" disabled={saving}
+              style={{padding:'13px',borderRadius:'var(--radius-md)',border:'none',background:saving?'var(--bg3)':'linear-gradient(135deg,var(--indigo),#a78bfa)',color:saving?'var(--text3)':'#fff',fontSize:'var(--text-sm)',fontWeight:'var(--font-semibold)',cursor:saving?'wait':'pointer',fontFamily:'var(--font)',transition:'all var(--transition)'}}>
+              {saving?'Salvando...':'✓ Confirmar aporte'}
+            </button>
           </form>
         </div>
       </Card>
@@ -135,8 +205,10 @@ export default function GoalsPage() {
 
   async function load() {
     setLoading(true);
-    const { data } = await api.get('/api/goals');
-    setGoals(data||[]);
+    try {
+      const { data } = await api.get('/api/goals');
+      setGoals(data||[]);
+    } catch(e) { console.error(e); }
     setLoading(false);
   }
   useEffect(()=>{ load(); },[]);
@@ -158,7 +230,6 @@ export default function GoalsPage() {
         action={<Button onClick={()=>{setEditing(null);setShowModal(true);}}>+ Nova meta</Button>}
       />
 
-      {/* Resumo */}
       {active.length>0 && (
         <div className="summary-grid" style={{gap:'var(--space-3)',marginBottom:'var(--space-5)'}}>
           <StatCard label="Meta total"  value={fmt(active.reduce((s,g)=>s+Number(g.target_amount),0))}  color="var(--text)"/>
@@ -167,7 +238,6 @@ export default function GoalsPage() {
         </div>
       )}
 
-      {/* Filtro */}
       <div style={{display:'flex',background:'var(--bg3)',borderRadius:'var(--radius-sm)',padding:3,border:'1px solid var(--border)',width:'fit-content',marginBottom:'var(--space-4)'}}>
         {[{id:'active',label:'Ativas'},{id:'done',label:'Concluídas'},{id:'all',label:'Todas'}].map(f=>(
           <button key={f.id} onClick={()=>setFilter(f.id)} style={{padding:'6px 14px',borderRadius:'var(--radius-sm)',fontSize:'var(--text-sm)',fontWeight:'var(--font-medium)',border:'none',cursor:'pointer',fontFamily:'var(--font)',background:filter===f.id?'var(--bg2)':'transparent',color:filter===f.id?'var(--indigo)':'var(--text3)',transition:'all var(--transition)'}}>
@@ -176,17 +246,13 @@ export default function GoalsPage() {
         ))}
       </div>
 
-      {/* Lista */}
-      {loading ? (
-        <SkeletonList n={3} h={140}/>
-      ) : filtered.length===0 ? (
-        <EmptyState
-          icon={filter==='done'?'🏆':'🎯'}
+      {loading ? <SkeletonList n={3} h={140}/> :
+       filtered.length===0 ? (
+        <EmptyState icon={filter==='done'?'🏆':'🎯'}
           title={filter==='done'?'Nenhuma meta concluída ainda.':'Nenhuma meta ativa.'}
           subtitle="Crie metas para acompanhar seu progresso de economia."
-          action={<Button onClick={()=>{setEditing(null);setShowModal(true);}}>+ Nova meta</Button>}
-        />
-      ) : filtered.map(goal=>{
+          action={<Button onClick={()=>{setEditing(null);setShowModal(true);}}>+ Nova meta</Button>}/>
+       ) : filtered.map(goal=>{
         const pct    = goal.pct || 0;
         const isLate = goal.deadline && !goal.done && new Date(goal.deadline) < new Date();
         return (
@@ -194,9 +260,7 @@ export default function GoalsPage() {
             <div style={{padding:'var(--space-5)'}}>
               <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'var(--space-3)'}}>
                 <div style={{display:'flex',alignItems:'center',gap:'var(--space-3)'}}>
-                  <div style={{width:42,height:42,borderRadius:'var(--radius-md)',background:'var(--indigo-dim)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>
-                    {goal.icon||'🎯'}
-                  </div>
+                  <div style={{width:42,height:42,borderRadius:'var(--radius-md)',background:'var(--indigo-dim)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{goal.icon||'🎯'}</div>
                   <div>
                     <p style={{fontSize:'var(--text-md)',fontWeight:'var(--font-semibold)',color:'var(--text)'}}>{goal.name}</p>
                     <div style={{display:'flex',gap:'var(--space-2)',marginTop:2,flexWrap:'wrap',alignItems:'center'}}>
@@ -212,7 +276,6 @@ export default function GoalsPage() {
                 </div>
               </div>
 
-              {/* Progresso */}
               <div style={{marginBottom:'var(--space-3)'}}>
                 <div style={{display:'flex',justifyContent:'space-between',marginBottom:'var(--space-1)'}}>
                   <span style={{fontFamily:'var(--mono)',fontSize:'var(--text-sm)',fontWeight:'var(--font-semibold)',color:'var(--green)'}}>{fmt(goal.current_amount)}</span>
@@ -248,7 +311,13 @@ export default function GoalsPage() {
       })}
 
       {showModal && <GoalModal goal={editing} onSave={()=>{setShowModal(false);load();}} onClose={()=>setShowModal(false)}/>}
-      {contributing && <ContributeModal goal={contributing} onSave={()=>{setContributing(null);load();}} onClose={()=>setContributing(null)}/>}
+      {contributing && (
+        <ContributeModal
+          goal={contributing}
+          onSave={()=>{ setContributing(null); load(); }}
+          onClose={()=>setContributing(null)}
+        />
+      )}
     </PageShell>
   );
 }
