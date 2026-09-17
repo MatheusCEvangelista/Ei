@@ -150,24 +150,41 @@ async function detectIntent(message, apiKey) {
 }
 
 // ── Executar ação (criar transação) ──────────────────────────────────────
+// ✅ CORRETO — substituir por:
 router.post('/execute', async (req, res) => {
   const { action } = req.body;
   if (action?.type !== 'create_transaction') return res.status(400).json({ error:'Ação inválida' });
 
-  const supabase = db(req.token);
-  const { amount, type, description, date, category_id, account_id } = action;
+  const supabase        = db(req.token);
+  const transactionType = action.transaction_type; // 'income' ou 'expense'
+  const { amount, description, date, category_id, account_id } = action;
+
+  if (!['income','expense'].includes(transactionType))
+    return res.status(400).json({ error: `Tipo de transação inválido: ${transactionType}` });
+
+  if (!amount || isNaN(amount) || Number(amount) <= 0)
+    return res.status(400).json({ error: 'Valor inválido' });
 
   try {
-    const { data: tx } = await supabase.from('transactions').insert({
-      user_id: req.user.id, amount, type,
-      description: description||'Lançado pelo Leon',
-      date: date || new Date().toISOString().split('T')[0],
-      category_id: category_id||null,
-      account_id:  account_id||null,
-      status: 'confirmed',
+    const { data: tx, error } = await supabase.from('transactions').insert({
+      user_id:     req.user.id,
+      type:        transactionType,
+      amount:      Number(amount),
+      description: description || 'Lançado pelo Leon',
+      date:        date || new Date().toISOString().split('T')[0],
+      category_id: category_id || null,
+      account_id:  account_id  || null,
+      status:      'confirmed',
     }).select().single();
 
-    res.json({ success:true, transaction:tx, message:`✅ ${type==='income'?'Receita':'Despesa'} de ${fmt(amount)} registrada com sucesso!` });
+    if (error) throw new Error(error.message);
+
+    const label = transactionType === 'income' ? 'Receita' : 'Despesa';
+    res.json({
+      success:     true,
+      transaction: tx,
+      message:     `✅ ${label} de ${fmt(Number(amount))} registrada com sucesso!`,
+    });
   } catch(err) {
     res.status(400).json({ error: err.message });
   }
