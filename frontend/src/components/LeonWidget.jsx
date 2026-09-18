@@ -71,26 +71,33 @@ export default function LeonWidget() {
       });
 
       // Ação confirmada — executa no backend
-      if (data.action_confirmed) {
-        const act = data.action_confirmed;
-        try {
-          const { data: result } = await api.post('/api/leon/execute',{ action:{ type:'create_transaction', transaction_type:act.transaction_type, amount:act.amount, description:act.description, date:act.date } });
-          setMessages(prev=>[...prev.filter(m=>!m.typing),{ from:'leon', text:result.message||'Transação criada! 🦎', actions:[] }]);
-          setPendingAction(null);
-          window.dispatchEvent(new CustomEvent('ei:transaction-saved'));
-        } catch {
-          setMessages(prev=>[...prev.filter(m=>!m.typing),{ from:'leon', text:'Ops, não consegui criar a transação. Tenta de novo! 🦎', actions:[] }]);
-        }
-      } else if (data.action_cancelled) {
-        setPendingAction(null);
-        setMessages(prev=>[...prev.filter(m=>!m.typing),{ from:'leon', text:data.answer, actions:[] }]);
-      } else {
-        // Salva ação pendente se houver
-        if (data.pending_action) setPendingAction(data.pending_action);
-        else setPendingAction(null);
+      if (data.transaction_created) {
+  setMessages(prev => [
+    ...prev.filter(m => !m.typing),
+    { from:'leon', text: data.answer, actions:[] }
+  ]);
+  setPendingAction(null);
+  // Avisa o Dashboard e outras páginas para recarregar
+  window.dispatchEvent(new CustomEvent('ei:transaction-saved'));
+  setState('happy');
+  setLoading(false);
+  return; // sai do bloco — não precisa continuar
+}
 
-        setMessages(prev=>[...prev.filter(m=>!m.typing),{ from:'leon', text:data.answer, actions:data.actions||[], pending_action:data.pending_action }]);
-      }
+// Restante do fluxo normal (ação cancelada, pending, resposta simples)
+if (data.action_cancelled) {
+  setPendingAction(null);
+}
+if (data.pending_action) {
+  setPendingAction(data.pending_action);
+} else if (!data.action_cancelled) {
+  setPendingAction(null);
+}
+
+setMessages(prev => [
+  ...prev.filter(m => !m.typing),
+  { from:'leon', text: data.answer, actions: data.actions || [], pending_action: data.pending_action }
+]);
 
       setState(s=>s==='analyzing'?'asking':s);
     } catch(err) {

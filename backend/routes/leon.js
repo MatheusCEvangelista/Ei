@@ -231,12 +231,52 @@ router.post('/ask', async (req, res) => {
 
       if (intent.intent === 'create_transaction') {
         // Confirmação de ação pendente
-        if (pending_action && /sim|confirma|ok|pode|vai|cria/i.test(message)) {
-          return res.json({
-            answer: `Perfeito! Registrando agora... 🦎`,
-            action_confirmed: pending_action,
-          });
-        }
+       if (pending_action && /^(sim|confirma|ok|pode|vai|cria|isso|exato|correto|s|yes)$/i.test(message.trim())) {
+  const act = pending_action;
+  try {
+    const transactionType = act.transaction_type;
+    if (!['income','expense'].includes(transactionType)) throw new Error('Tipo inválido');
+
+    const { data: tx, error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id:     req.user.id,
+        type:        transactionType,
+        amount:      Number(act.amount),
+        description: act.description || 'Lançado pelo Leon',
+        date:        act.date || new Date().toISOString().split('T')[0],
+        category_id: act.category_id || null,
+        account_id:  act.account_id  || null,
+        status:      'confirmed',
+      })
+      .select()
+      .single();
+
+    if (txError) throw new Error(txError.message);
+
+    const label = transactionType === 'income' ? 'Receita' : 'Despesa';
+    return res.json({
+      answer: `✅ ${label} de ${fmt(Number(act.amount))} — "${act.description}" registrada com sucesso! Qualquer outra coisa é só falar. 🦎`,
+      transaction_created: true,
+      transaction: tx,
+      actions: [],
+    });
+  } catch(err) {
+    return res.json({
+      answer: `Poxa, não consegui registrar. Erro: ${err.message}. Tenta de novo? 🦎`,
+      actions: [],
+    });
+  }
+}
+
+// Cancelamento
+if (pending_action && /^(não|nao|cancela|cancelar|para|n|no)$/i.test(message.trim())) {
+  return res.json({
+    answer: 'Tudo bem, cancelei! Me avisa se precisar de mais alguma coisa. 🦎',
+    action_cancelled: true,
+    actions: [],
+  });
+}
 
         // Campos faltando — faz pergunta
         if (intent.missing?.length > 0) {
@@ -273,15 +313,7 @@ router.post('/ask', async (req, res) => {
           });
         }
       }
-
-      // Cancelar ação pendente
-      if (pending_action && /não|nao|cancela|para/i.test(message)) {
-        return res.json({
-          answer: 'Tudo bem, cancelei! Me avisa se precisar de algo. 🦎',
-          action_cancelled: true,
-          actions: [],
-        });
-      }
+      
     }
 
     // Resposta normal do Leon
