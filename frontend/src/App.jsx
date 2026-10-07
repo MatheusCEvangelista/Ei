@@ -104,7 +104,6 @@ export default function App() {
               <Route path="/notifications" element={<PrivateRoute><NotificationSettingsPage/></PrivateRoute>}/>
               <Route path="/profile"       element={<PrivateRoute><ProfilePage/></PrivateRoute>}/>
               <Route path="/connections"   element={<PrivateRoute><ConnectionsPage/></PrivateRoute>}/>
-              <Route path="/connections" element={<PrivateRoute><ConnectionsPage/></PrivateRoute>}/>
               <Route path="/notification-settings" element={<Navigate to="/notifications" replace/>}/>
               <Route path="*"             element={<Navigate to="/" replace/>}/>
             </Routes>

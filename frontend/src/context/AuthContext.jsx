@@ -25,10 +25,14 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-    try { await api.post('/api/auth/logout'); } catch(_) {}
-    localStorage.removeItem('session');
-    localStorage.removeItem('user');
-    setUser(null);
+     try { await api.post('/api/auth/logout'); } catch(_) {}
+  localStorage.removeItem('session');
+  localStorage.removeItem('user');
+  // Limpar chaves do Supabase também
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('sb-'))
+    .forEach(k => localStorage.removeItem(k));
+  window.location.href = '/login';
   }
 
   return (

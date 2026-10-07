@@ -68,6 +68,7 @@ router.post('/', async (req, res) => {
     credit_card_id: credit_card_id || null,
     import_hash:    import_hash    || null,
     recurring_id:   recurring_id   || null,
+    is_investment:  req.body.is_investment || false,
     status:         txStatus,
     user_id:        req.user.id,
     date,
