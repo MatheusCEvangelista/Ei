@@ -33,6 +33,21 @@ const pushRoutes = require('./routes/push');
 const profileRoutes = require('./routes/profile');
 const app = express();
 
+const helmet    = require('helmet');
+const rateLimit = require('express-rate-limit');
+
+app.use(helmet({ crossOriginEmbedderPolicy: false, contentSecurityPolicy: false }));
+
+app.use(rateLimit({ windowMs: 60*1000, max: 100,
+  message: { error: 'Muitas requisições. Tente em 1 minuto.' }
+}));
+
+const authLimiter = rateLimit({ windowMs: 15*60*1000, max: 10,
+  message: { error: 'Muitas tentativas. Tente em 15 minutos.' }
+});
+app.use('/api/auth/login',    authLimiter);
+app.use('/api/auth/register', authLimiter);
+
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:4173',
