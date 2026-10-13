@@ -38,7 +38,9 @@ export default function ImportModal({ onSave, onClose }) {
   const [reviewed,   setReviewed]   = useState([]);
   const [importing,  setImporting]  = useState(false);
   const [result,     setResult]     = useState(null);
-  const [categories, setCategories] = useState([]);
+  const [categories,      setCategories]      = useState([]);
+  const [accounts,         setAccounts]         = useState([]);
+  const [selectedAccountId,setSelectedAccountId] = useState('');
   const [isMobile,   setIsMobile]   = useState(window.innerWidth < 560);
   const fileRef = useRef();
 
@@ -58,7 +60,14 @@ export default function ImportModal({ onSave, onClose }) {
   async function handleBankSelect(b) {
     setBank(b); setError('');
     setStep(STEPS.SELECT_FILE);
-    try { const { data } = await api.get('/api/categories'); setCategories(data||[]); } catch {}
+    try {
+      const [{ data: cats }, { data: accs }] = await Promise.all([
+        api.get('/api/categories'),
+        api.get('/api/accounts'),
+      ]);
+      setCategories(cats || []);
+      setAccounts(accs || []);
+    } catch {}
   }
 
   async function handleFile(e) {
@@ -103,6 +112,7 @@ export default function ImportModal({ onSave, onClose }) {
           description: tx.description,
           date:        tx.date,
           category_id: tx.category_id || null,
+          account_id:  selectedAccountId || null,
           import_hash: btoa(unescape(encodeURIComponent(`${tx.date}${tx.description}${tx.amount}`))).slice(0,32),
         });
         ok++;
@@ -240,6 +250,24 @@ export default function ImportModal({ onSave, onClose }) {
                   {selectedCount} / {reviewed.length}
                 </span>
               </div>
+
+              {/* Seletor de conta para importação */}
+              {accounts.length > 0 && (
+                <div style={{marginBottom:10}}>
+                  <label style={{display:'block',fontSize:11,color:'var(--text3)',marginBottom:4,textTransform:'uppercase',letterSpacing:'0.05em',fontWeight:600}}>
+                    Lançar na conta
+                  </label>
+                  <select
+                    value={selectedAccountId}
+                    onChange={e=>setSelectedAccountId(e.target.value)}
+                    style={{width:'100%',fontSize:12,padding:'7px 10px',borderRadius:'var(--radius-sm)',border:'1px solid var(--border)',background:'var(--bg3)',color:'var(--text)',fontFamily:'var(--font)'}}>
+                    <option value="">Sem conta (genérico)</option>
+                    {accounts.map(a=>(
+                      <option key={a.id} value={a.id}>{a.icon||'🏦'} {a.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Lista de transações */}
               <div style={{display:'flex',flexDirection:'column',gap:4}}>

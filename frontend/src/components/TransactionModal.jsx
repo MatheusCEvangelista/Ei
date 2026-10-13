@@ -22,13 +22,14 @@ export default function TransactionModal({ transaction, defaultType='expense', o
   const [error,      setError]      = useState('');
 
   const [form, setForm] = useState({
-    type:        transaction?.type        || defaultType,
-    amount:      transaction?.amount      || '',
-    description: transaction?.description || '',
-    category_id: transaction?.category_id || '',
-    account_id:  transaction?.account_id  || '',
-    date:        transaction?.date        || new Date().toISOString().split('T')[0],
-    status:      transaction?.status      || 'confirmed',
+    type:          transaction?.type          || defaultType,
+    amount:        transaction?.amount        || '',
+    description:   transaction?.description   || '',
+    category_id:   transaction?.category_id   || '',
+    account_id:    transaction?.account_id    || '',
+    date:          transaction?.date          || new Date().toISOString().split('T')[0],
+    status:        transaction?.status        || 'confirmed',
+    is_investment: transaction?.is_investment || false,
   });
 
   useEffect(() => {
@@ -54,9 +55,10 @@ export default function TransactionModal({ transaction, defaultType='expense', o
     try {
       const payload = {
         ...form,
-        amount: parseFloat(form.amount),
-        category_id: form.category_id || null,
-        account_id:  form.account_id  || null,
+        amount:        parseFloat(form.amount),
+        category_id:   form.category_id   || null,
+        account_id:    form.account_id    || null,
+        is_investment: form.is_investment || false,
       };
       if (transaction?.id) await api.put(`/api/transactions/${transaction.id}`, payload);
       else                  await api.post('/api/transactions', payload);
@@ -205,6 +207,24 @@ export default function TransactionModal({ transaction, defaultType='expense', o
                   ))}
                 </div>
               </div>
+
+              {/* Marcar como investimento */}
+              <label style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer',padding:'10px 14px',borderRadius:'var(--radius-md)',border:'1px solid var(--border)',background:form.is_investment?'var(--indigo-dim)':'var(--bg3)',transition:'all var(--transition)'}}>
+                <input
+                  type="checkbox"
+                  checked={form.is_investment}
+                  onChange={e=>setForm({...form,is_investment:e.target.checked})}
+                  style={{accentColor:'var(--indigo)',width:16,height:16,flexShrink:0}}
+                />
+                <div>
+                  <p style={{fontSize:'var(--text-sm)',fontWeight:'var(--font-medium)',color:form.is_investment?'var(--indigo)':'var(--text)'}}>
+                    📈 Transação de investimento
+                  </p>
+                  <p style={{fontSize:'var(--text-xs)',color:'var(--text3)',marginTop:1}}>
+                    Não conta no saldo do dashboard
+                  </p>
+                </div>
+              </label>
 
               {error && (
                 <div style={{background:'var(--red-dim)',border:'1px solid rgba(240,94,110,0.2)',borderRadius:'var(--radius-md)',padding:'10px 14px',fontSize:'var(--text-xs)',color:'var(--red)'}}>
