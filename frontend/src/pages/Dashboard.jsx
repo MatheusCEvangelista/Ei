@@ -87,6 +87,93 @@ function TxRow({ tx, onEdit, onDelete }) {
   );
 }
 
+
+// ── Retrospectiva de Mês Fechado ────────────────────────────────────────────
+function MonthRetrospective({ summary, goals, month, year }) {
+  const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const fmt = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
+  const income  = summary?.income  || 0;
+  const expense = summary?.expense || 0;
+  const balance = summary?.balance || 0;
+  const rate    = income>0 ? Math.round((income-expense)/income*100) : 0;
+
+  const topCats = [...(summary?.byCategory||[])]
+    .sort((a,b)=>b.value-a.value)
+    .slice(0,3);
+
+  const goalsDone   = goals.filter(g=>g.pct>=100).length;
+  const goalsActive = goals.filter(g=>g.pct<100).length;
+
+  let leonMsg = '';
+  if (rate >= 30)       leonMsg = `Incrível! Você poupou ${rate}% da renda em ${MONTHS[month-1]}. Continue assim! 🎉`;
+  else if (rate >= 10)  leonMsg = `Bom trabalho! Taxa de poupança de ${rate}%. Vamos tentar chegar em 20% no próximo mês? 💪`;
+  else if (rate > 0)    leonMsg = `Mês apertado, mas você se manteve no positivo (${rate}%). Cada real conta! 🦎`;
+  else if (balance < 0) leonMsg = `O saldo ficou negativo em ${MONTHS[month-1]}. Que tal revisarmos as maiores despesas juntos? 🔍`;
+  else                  leonMsg = `Revisão de ${MONTHS[month-1]} pronta! Como foi o mês pra você? 📅`;
+
+  return (
+    <div style={{background:'var(--bg2)',border:'1px solid var(--border)',borderRadius:'var(--radius-xl)',padding:'var(--space-5)',marginBottom:'var(--space-5)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:'var(--space-2)',marginBottom:'var(--space-4)'}}>
+        <span style={{fontSize:18}}>📅</span>
+        <div>
+          <p style={{fontSize:'var(--text-sm)',fontWeight:'var(--font-semibold)',color:'var(--text)'}}>Retrospectiva de {MONTHS[month-1]} {year}</p>
+          <p style={{fontSize:'var(--text-xs)',color:'var(--text3)'}}>Mês encerrado</p>
+        </div>
+      </div>
+
+      {/* Taxa de poupança */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'var(--space-2)',marginBottom:'var(--space-4)'}}>
+        {[
+          {label:'Receitas',     value:fmt(income),  color:'var(--green)'},
+          {label:'Despesas',     value:fmt(expense), color:'var(--red)'},
+          {label:'Taxa poupança',value:`${rate}%`,  color:rate>=20?'var(--green)':rate>=0?'var(--amber)':'var(--red)'},
+        ].map(m=>(
+          <div key={m.label} style={{background:'var(--bg3)',borderRadius:'var(--radius-lg)',padding:'10px 12px',textAlign:'center'}}>
+            <p style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:4}}>{m.label}</p>
+            <p style={{fontFamily:'var(--mono)',fontSize:13,fontWeight:600,color:m.color}}>{m.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Top 3 categorias */}
+      {topCats.length>0 && (
+        <div style={{marginBottom:'var(--space-4)'}}>
+          <p style={{fontSize:'var(--text-xs)',color:'var(--text3)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>Maiores gastos</p>
+          {topCats.map((cat,i)=>(
+            <div key={cat.name} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+              <span style={{fontSize:12,color:'var(--text3)',fontFamily:'var(--mono)',width:16,textAlign:'right'}}>{i+1}</span>
+              <div style={{flex:1}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+                  <span style={{fontSize:'var(--text-sm)',color:'var(--text)'}}>{cat.icon||'📦'} {cat.name}</span>
+                  <span style={{fontSize:'var(--text-sm)',fontFamily:'var(--mono)',color:'var(--text)'}}>{fmt(cat.value)}</span>
+                </div>
+                <div style={{height:3,background:'var(--bg3)',borderRadius:2}}>
+                  <div style={{height:'100%',width:`${Math.min(100,expense>0?Math.round(cat.value/expense*100):0)}%`,background:cat.color||'var(--indigo)',borderRadius:2}}/>
+                </div>
+              </div>
+              <span style={{fontSize:10,color:'var(--text3)',width:28,textAlign:'right'}}>{expense>0?Math.round(cat.value/expense*100):0}%</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Metas */}
+      {goals.length>0 && (
+        <div style={{display:'flex',gap:8,marginBottom:'var(--space-4)'}}>
+          {goalsDone>0 && <span style={{fontSize:11,background:'var(--green-dim)',color:'var(--green)',borderRadius:'var(--radius-full)',padding:'3px 10px'}}>✓ {goalsDone} meta{goalsDone>1?'s':''} concluída{goalsDone>1?'s':''}</span>}
+          {goalsActive>0 && <span style={{fontSize:11,background:'var(--amber-dim,rgba(245,158,11,0.1))',color:'var(--amber)',borderRadius:'var(--radius-full)',padding:'3px 10px'}}>⏳ {goalsActive} em andamento</span>}
+        </div>
+      )}
+
+      {/* Leon */}
+      <div style={{display:'flex',gap:10,alignItems:'flex-start',background:'var(--bg3)',borderRadius:'var(--radius-lg)',padding:'10px 12px'}}>
+        <span style={{fontSize:20,flexShrink:0}}>🦎</span>
+        <p style={{fontSize:'var(--text-sm)',color:'var(--text)',lineHeight:1.5}}>{leonMsg}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const today = new Date();
   const [month,       setMonth]       = useState(today.getMonth()+1);
@@ -102,23 +189,40 @@ export default function Dashboard() {
   const [editingTx,   setEditingTx]   = useState(null);
   const [txType,      setTxType]      = useState('expense');
   const [showAllTxs,  setShowAllTxs]  = useState(false);
+  const [leonCoach,   setLeonCoach]   = useState(null);
+  const [goals,       setGoals]       = useState([]);
+  const isCurrentMonth = (() => { const n=new Date(); return month===n.getMonth()+1 && year===n.getFullYear(); })();
   const navigate = useNavigate();
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sumRes, txRes, insRes, scoreRes, budRes] = await Promise.all([
+      const [sumRes, txRes, insRes, scoreRes, budRes, coachRes] = await Promise.all([
         api.get(`/api/summary?month=${month}&year=${year}`),
         api.get(`/api/transactions?month=${month}&year=${year}`),
         api.get('/api/insights'),
         api.get('/api/insights/score').catch(()=>({data:null})),
         api.get('/api/budgets').catch(()=>({data:[]})),
+        api.get('/api/insights/coach').catch(()=>({data:null})),
       ]);
       setSummary(sumRes.data);
       setTxs(txRes.data||[]);
       setInsights(insRes.data||[]);
       setScore(scoreRes.data);
       setBudgets(budRes.data||[]);
+      if (coachRes.data?.message) setLeonCoach(coachRes.data.message);
+      try { const g=await api.get('/api/goals'); setGoals(g.data||[]); } catch {}
+
+      // Resumo semanal: dispara no domingo, uma vez por sessão
+      const isSunday = new Date().getDay() === 0;
+      const lastSummaryKey = 'ei_weekly_summary_sent';
+      const lastSent = localStorage.getItem(lastSummaryKey);
+      const today = new Date().toISOString().split('T')[0];
+      if (isSunday && lastSent !== today) {
+        api.post('/api/insights/weekly-summary').then(() => {
+          localStorage.setItem(lastSummaryKey, today);
+        }).catch(()=>{});
+      }
     } catch(e){ console.error(e); }
     setLoading(false);
   },[month,year]);
@@ -216,6 +320,23 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
+
+          {/* Leon Coach — mensagem proativa */}
+          {leonCoach && (
+            <div style={{marginBottom:'var(--space-4)',display:'flex',gap:'var(--space-3)',alignItems:'flex-start',background:'var(--indigo-dim)',border:'1px solid rgba(124,58,237,0.2)',borderRadius:'var(--radius-xl)',padding:'var(--space-4)'}}>
+              <div style={{fontSize:28,lineHeight:1,flexShrink:0,marginTop:2}}>🦎</div>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontSize:'var(--text-xs)',fontWeight:'var(--font-semibold)',color:'var(--indigo)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:4}}>Leon diz</p>
+                <p style={{fontSize:'var(--text-sm)',color:'var(--text)',lineHeight:1.5}}>{leonCoach}</p>
+              </div>
+              <button onClick={()=>setLeonCoach(null)} style={{flexShrink:0,background:'none',border:'none',color:'var(--text3)',cursor:'pointer',fontSize:16,padding:0,lineHeight:1}}>×</button>
+            </div>
+          )}
+
+          {/* Retrospectiva de mês fechado */}
+          {!isCurrentMonth && summary && (
+            <MonthRetrospective summary={summary} goals={goals} month={month} year={year}/>
+          )}
 
           {/* Insights */}
           {insights.length>0 && (
