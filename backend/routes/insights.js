@@ -265,4 +265,203 @@ router.get('/score', async (req, res) => {
   });
 });
 
+
+// ── Utilitário Groq compartilhado ─────────────────────────────────────────
+async function callGroq(systemPrompt, userPrompt, maxTokens = 300) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', Authorization:`Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'openai/gpt-oss-120b', max_tokens: maxTokens, temperature: 0.75,
+        messages: [{ role:'system', content:systemPrompt }, { role:'user', content:userPrompt }],
+      }),
+    });
+    if (!r.ok) return null;
+    const data = await r.json();
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  } catch { return null; }
+}
+
+// ── Leon Coach — detecta padrões e sugere ação proativa ──────────────────
+// GET /api/insights/coach
+router.get('/coach', async (req, res) => {
+  const supabase = db(req.token);
+  const today    = new Date();
+  const month    = today.getMonth() + 1;
+  const year     = today.getFullYear();
+  const start    = `${year}-${String(month).padStart(2,'0')}-01`;
+  const end      = new Date(year, month, 0).toISOString().split('T')[0];
+
+  // Busca transações dos últimos 2 meses
+  const prevMonth = month === 1 ? 12 : month - 1;
+  const prevYear  = month === 1 ? year - 1 : year;
+  const prevStart = `${prevYear}-${String(prevMonth).padStart(2,'0')}-01`;
+
+  const [txs, budgets, goals] = await Promise.all([
+    safeQuery(supabase.from('transactions')
+      .select('amount,type,description,category_id,categories(name),date,transfer_id')
+      .eq('user_id', req.user.id)
+      .gte('date', prevStart).lte('date', end)
+      .eq('status', 'confirmed')),
+    safeQuery(supabase.from('budgets').select('amount,category_id,categories(name)').eq('user_id', req.user.id)),
+    safeQuery(supabase.from('goals').select('name,current_amount,target_amount').eq('user_id', req.user.id)),
+  ]);
+
+  const real     = txs.filter(t => !t.transfer_id);
+  const thisMo   = real.filter(t => t.date >= start);
+  const prevMo   = real.filter(t => t.date < start);
+
+  const income   = thisMo.filter(t => t.type === 'income').reduce((s,t) => s+Number(t.amount), 0);
+  const expense  = thisMo.filter(t => t.type === 'expense').reduce((s,t) => s+Number(t.amount), 0);
+
+  // Agrupa por categoria neste mês
+  const byCat = {};
+  thisMo.filter(t => t.type === 'expense' && t.categories?.name).forEach(t => {
+    const n = t.categories.name;
+    byCat[n] = (byCat[n] || 0) + Number(t.amount);
+  });
+
+  // Agrupa por categoria no mês anterior
+  const prevByCat = {};
+  prevMo.filter(t => t.type === 'expense' && t.categories?.name).forEach(t => {
+    const n = t.categories.name;
+    prevByCat[n] = (prevByCat[n] || 0) + Number(t.amount);
+  });
+
+  // Detectar categorias com crescimento > 30%
+  const growing = Object.entries(byCat)
+    .filter(([cat, val]) => prevByCat[cat] > 0 && val / prevByCat[cat] > 1.3)
+    .map(([cat, val]) => ({ cat, val, prev: prevByCat[cat], pct: Math.round((val/prevByCat[cat]-1)*100) }))
+    .sort((a,b) => b.pct - a.pct);
+
+  // Detectar orçamentos próximos do limite (> 80%)
+  const nearBudget = budgets
+    .filter(b => b.categories?.name && (byCat[b.categories.name]||0) / Number(b.amount) > 0.8)
+    .map(b => ({ cat: b.categories.name, spent: byCat[b.categories.name]||0, budget: Number(b.amount) }));
+
+  // Meta próxima de concluir (> 80%)
+  const nearGoal = goals
+    .filter(g => g.target_amount > 0 && g.current_amount / g.target_amount > 0.8 && g.current_amount < g.target_amount)
+    .sort((a,b) => b.current_amount/b.target_amount - a.current_amount/a.target_amount)[0];
+
+  // Monta contexto para o Leon
+  const context = [
+    `Receitas este mês: ${fmt(income)}`,
+    `Despesas este mês: ${fmt(expense)}`,
+    growing.length ? `Categorias crescendo: ${growing.slice(0,2).map(g=>`${g.cat} +${g.pct}%`).join(', ')}` : '',
+    nearBudget.length ? `Orçamentos próximos do limite: ${nearBudget.slice(0,2).map(b=>`${b.cat} (${Math.round(b.spent/b.budget*100)}%)`).join(', ')}` : '',
+    nearGoal ? `Meta "${nearGoal.name}" está ${Math.round(nearGoal.current_amount/nearGoal.target_amount*100)}% concluída` : '',
+  ].filter(Boolean).join('\n');
+
+  const systemPrompt = `Você é Leon, o camaleão assistente financeiro do app Ei!. Seu jeito é amigável, direto e encorajador. 
+Você analisa os dados financeiros do usuário e faz UMA observação curta e útil, como um coach que se importa.
+Responda em português brasileiro, máximo 2 frases. Seja específico com os dados. Não repita "Ei!" no início.`;
+
+  const userPrompt = `Dados financeiros do usuário:\n${context}\n\nFaça uma observação útil e proativa baseada nesses dados.`;
+
+  const message = await callGroq(systemPrompt, userPrompt, 150);
+
+  // Fallback sem Groq
+  const fallback = growing.length
+    ? `Seus gastos com ${growing[0].cat} subiram ${growing[0].pct}% em relação ao mês passado. Quer definir um teto para essa categoria?`
+    : nearBudget.length
+    ? `Você já usou ${Math.round(nearBudget[0].spent/nearBudget[0].budget*100)}% do orçamento de ${nearBudget[0].cat}. Fique de olho!`
+    : nearGoal
+    ? `Sua meta "${nearGoal.name}" está quase lá! Faltam ${fmt(nearGoal.target_amount - nearGoal.current_amount)} para concluir.`
+    : null;
+
+  res.json({
+    message:  message || fallback,
+    context: { growing: growing.slice(0,3), nearBudget: nearBudget.slice(0,2), nearGoal: nearGoal || null },
+  });
+});
+
+// ── Resumo Semanal — gera e envia push notification ──────────────────────
+// POST /api/insights/weekly-summary
+router.post('/weekly-summary', async (req, res) => {
+  const supabase = db(req.token);
+  const today    = new Date();
+  // Últimos 7 dias
+  const weekAgo  = new Date(today); weekAgo.setDate(today.getDate() - 7);
+  const startStr = weekAgo.toISOString().split('T')[0];
+  const endStr   = today.toISOString().split('T')[0];
+
+  const txs = await safeQuery(
+    supabase.from('transactions')
+      .select('amount,type,description,category_id,categories(name),transfer_id')
+      .eq('user_id', req.user.id)
+      .gte('date', startStr).lte('date', endStr)
+      .eq('status', 'confirmed')
+  );
+
+  const real    = txs.filter(t => !t.transfer_id);
+  const income  = real.filter(t => t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
+  const expense = real.filter(t => t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
+  const balance = income - expense;
+
+  // Top categoria da semana
+  const byCat = {};
+  real.filter(t=>t.type==='expense'&&t.categories?.name).forEach(t=>{
+    byCat[t.categories.name]=(byCat[t.categories.name]||0)+Number(t.amount);
+  });
+  const topCats = Object.entries(byCat).sort((a,b)=>b[1]-a[1]).slice(0,3);
+
+  const context = [
+    `Período: ${startStr} a ${endStr}`,
+    `Receitas: ${fmt(income)} | Despesas: ${fmt(expense)} | Saldo: ${fmt(balance)}`,
+    `Transações: ${real.length}`,
+    topCats.length ? `Top gastos: ${topCats.map(([c,v])=>`${c} ${fmt(v)}`).join(', ')}` : 'Sem despesas categorizadas',
+  ].join('\n');
+
+  const systemPrompt = `Você é Leon, o camaleão do app Ei!. Escreva um resumo semanal de finanças em 2-3 frases.
+Seja animado, use um emoji no início. Fale sobre o saldo e destaque algo positivo ou um alerta se necessário.
+Máximo 200 caracteres para caber bem em uma notificação push. Português brasileiro.`;
+
+  const text = await callGroq(systemPrompt, context, 100);
+
+  const fallbackEmoji = balance >= 0 ? '✅' : '⚠️';
+  const fallbackText  = `${fallbackEmoji} Semana: receitas ${fmt(income)}, despesas ${fmt(expense)}. Saldo ${balance>=0?'positivo':'negativo'}: ${fmt(Math.abs(balance))}.`;
+  const body          = text || fallbackText;
+  const title         = '📊 Seu resumo semanal, Leon aqui!';
+
+  // Envia push se tiver subscriptions
+  const { data: subs } = await supabase.from('push_subscriptions')
+    .select('subscription').eq('user_id', req.user.id);
+
+  let sent = 0;
+  if (subs?.length) {
+    const webpush = require('web-push');
+    webpush.setVapidDetails(
+      `mailto:${process.env.VAPID_EMAIL||'admin@ei.app'}`,
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY,
+    );
+    for (const row of subs) {
+      try {
+        await webpush.sendNotification(JSON.parse(row.subscription), JSON.stringify({ title, body, url:'/dashboard' }));
+        sent++;
+      } catch(err) {
+        if (err.statusCode===410) {
+          await supabase.from('push_subscriptions').delete().eq('endpoint', JSON.parse(row.subscription).endpoint);
+        }
+      }
+    }
+  }
+
+  // Salva no histórico de notificações do app também
+  await supabase.from('notifications').insert({
+    user_id: req.user.id,
+    type:    'weekly_summary',
+    title,
+    body,
+    data:    { income, expense, balance, top_cats: topCats.map(([c,v])=>({name:c,total:v})) },
+    read:    false,
+  }).catch(()=>{});
+
+  res.json({ title, body, sent, stats: { income, expense, balance, tx_count: real.length, top_cats: topCats } });
+});
+
 module.exports = router;
